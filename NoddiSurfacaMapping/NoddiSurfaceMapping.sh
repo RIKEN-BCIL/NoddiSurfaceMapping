@@ -31,7 +31,7 @@ AMICODIR="/usr/local/HCP-RIKEN/NODDI/AMICO-master"		# path to AMICO dir
 AMICODATADIR="/data/HCP-RIKEN/FAI1/AMICO"                  	# path to AMICO data dir
 AMICOPROTOCOL="PROTOCOL_$$"                               	
 CAMINODIR="/usr/local/camino"					# path to Camino
-RunMode="0"  								# 0: Matlab, 1: Python
+RunMode="0"  							# 0: Matlab, 1: Python
 
 # References:
 # NODDI: http://mig.cs.ucl.ac.uk/index.php?n=Tutorial.NODDImatlab
@@ -109,7 +109,7 @@ echo "Start: DTIFit"
 echo "Fitting DTI model to dMRI ..."
 echo ""
 
-bthresh=1050 # bvalue threshosd for DTI 
+bthresh=3100 # b-value threshold for DTI 
 
 if [ -e $DWIT1wFolder/dti_vol.txt ] ; then rm $DWIT1wFolder/dti_vol.txt; fi
 j=0;for i in `cat $DWIT1wFolder/bvals` ; do if [ `echo $i | awk '{printf "%d",$1}'` -lt $bthresh ] ; then j=`zeropad $j 4`; echo -n "vol${j} ">> $DWIT1wFolder/dti_vol.txt;fi;j=`expr $j + 1`;done
