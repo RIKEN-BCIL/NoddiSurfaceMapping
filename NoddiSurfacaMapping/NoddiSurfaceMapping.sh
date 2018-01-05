@@ -183,7 +183,7 @@ AMICO_ResampleKernels();
 AMICO_Fit();
 EOF
 
-matlab -nodesktop -nosplash -r "run $command;quit;"
+	matlab -nodesktop -nosplash -r "run $command;quit;"
 
 elif [ "$RunMode" = "1" ] ; then
 	command=$AMICODATADIR/$protocol/$subjdir/noddifit.py;
