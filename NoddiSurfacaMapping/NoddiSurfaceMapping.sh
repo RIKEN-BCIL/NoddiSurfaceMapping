@@ -22,8 +22,8 @@ SetUp () {
 
 # HCP PIPELINE
 HCPPIPEDIR=/mnt/FAI1/devel/git/Pipelines
-. $HCPPIPEDIR/Examples/Scripts/SetUpHCPPipeline.sh
-CARET7DIR=/usr/bin
+source $HCPPIPEDIR/Examples/Scripts/SetUpHCPPipeline.sh
+source $HCPPIPEDIR/global/scripts/log.shlib  # Logging related functions
 
 # NODDI, requires  'AMICO', 'Camino' and 'matlab' or 'python and pythonspams' 
 NODDIHCP="/usr/local/HCP-RIKEN/NODDI"				# path to NoddiSurfaceMapping
@@ -104,10 +104,7 @@ fi
 #########################################################
 DTIFit () {
 
-echo ""
-echo "Start: DTIFit"
-echo "Fitting DTI model to dMRI ..."
-echo ""
+log_Msg "Start: DTIFit"
 
 bthresh=3100 # b-value threshold for DTI 
 
@@ -135,19 +132,12 @@ dtifit  -k $DWIT1wFolder/dti_data.nii.gz -o $DWIT1wFolder/dti -m $DWIT1wFolder/n
 imrm $DWIT1wFolder/vol????.nii.gz $DWIT1wFolder/dti_data.nii.gz 
 rm $DWIT1wFolder/dti_bvecstmp $DWIT1wFolder/dti_bvecs $DWIT1wFolder/dti_bvals $DWIT1wFolder/dti_vollist.txt
 
-echo ""
-echo "End: DTIFit"
-echo ""
-
 }
 
 
 NODDIFit () {
 
-echo ""
-echo "Start: NODDIFit"
-echo "Fitting NODDI model to dMRI ..."
-echo ""
+log_Msg "Start: NODDIFit"
 
 protocol=$AMICOPROTOCOL
 subjdir=subject_$$
@@ -220,18 +210,11 @@ fslchfiletype NIFTI_GZ $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_dir.nii 
 \rm -rf $AMICODATADIR/$protocol/$subjdir
 \rm -rf $AMICODATADIR/$protocol
 
-echo ""
-echo "End: NODDIFit"
-echo ""
-
 }
 
 DiffusionSurfaceMapping () {
 
-echo ""
-echo "Start: DiffusionSurfaceMapping"
-echo "Doing surface mapping of DTI and NODDI..."
-echo ""
+log_Msg "Start: DiffusionSurfaceMapping"
 
 fslmaths $AtlasSpaceFolder/ribbon.nii.gz -thr $ribbonLlabel -uthr $ribbonLlabel -bin $AtlasSpaceFolder/ribbon_L.nii.gz
 fslmaths $AtlasSpaceFolder/ribbon.nii.gz -thr $ribbonRlabel -uthr $ribbonRlabel -bin $AtlasSpaceFolder/ribbon_R.nii.gz
@@ -283,11 +266,6 @@ for Hemisphere in R L; do
 done
 wb_command -cifti-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/noddi_odi.dscalar.nii -var kappa $AtlasSpaceResultsDWIFolder/noddi_kappa.dscalar.nii 1>/dev/null
 
-
-echo ""
-echo "End: DiffusionSurfaceMapping"
-echo ""
-
 }
 
 #########################################################
@@ -305,22 +283,13 @@ Subjects="$@";
 
 for Subject in $Subjects ; do
  if [ "`echo ${Subject: -1}`" = "/" ] ; then Subject=`echo ${Subject/%?/}` ;fi
- 
- echo ""
- echo "Started $CMD for subject: $Subject at `date -R`"
- echo ""
-
+ log_Msg "Start $CMD for subject: $Subject at `date -R`"
  SetUp;
- echo ""
- echo "SPECIES=$SPECIES"
- echo ""
+ log_Msg "SPECIES=$SPECIES"
  DTIFit;
  NODDIFit;
  DiffusionSurfaceMapping;
-
- echo ""
- echo "Finished $CMD for subject: $Subject at `date -R`"
- echo ""
+ log_Msg "Finish $CMD for subject: $Subject at `date -R`"
 
 done
 
