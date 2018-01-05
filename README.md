@@ -4,5 +4,7 @@ Optimized cortical surface mapping of neurite properties using NODDI and HCP pip
 ### Example surface map
 
 ### Installation
+#### Dependencies
+AMICO, HCP pipeline, workbench, FSL
 
 ### References
