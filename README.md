@@ -5,6 +5,8 @@ Optimized cortical surface mapping of neurite properties using NODDI and HCP pip
 
 ### Installation
 #### Dependencies
-AMICO, HCP pipeline, workbench, FSL
+[AMICO][], HCP pipeline, workbench, FSL
+
+[AMICO]: https://github.com/daducci/AMICO "AMICO"
 
 ### References
