@@ -196,8 +196,7 @@ sys.path.append('$AMICODATADIR');
 import amico;
 amico.core.setup();
 ae = amico.Evaluation("$protocoldir","$subjdir");
-ae.load_data(dwi_filename = "data.nii" , scheme_filename = "dwi.scheme"
-, mask_filename = "nodif_brain_mask.nii" , b0_thr = 0);
+ae.load_data(dwi_filename = "data.nii" , scheme_filename = "dwi.scheme", mask_filename = "nodif_brain_mask.nii" , b0_thr = 0);
 ae.set_model("NODDI");
 ae.generate_kernels();
 ae.load_kernels();
@@ -205,7 +204,7 @@ ae.fit();
 ae.save_results();
 EOF
 
-python $command
+	python $command
 
 else
 	echo "ERROR: cannot find which RunMode (matlab or python) should be used!"; exit 1;
