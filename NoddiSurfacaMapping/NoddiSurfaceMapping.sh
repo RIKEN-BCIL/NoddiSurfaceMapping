@@ -21,7 +21,7 @@ UsageExit () {
 SetUp () {
 
 # HCP PIPELINE
-HCPPIPEDIR=/usr/local/HCP/Pipelines-3.17.0
+HCPPIPEDIR=/mnt/FAI1/devel/git/Pipelines
 . $HCPPIPEDIR/Examples/Scripts/SetUpHCPPipeline.sh
 CARET7DIR=/usr/bin
 
@@ -280,9 +280,8 @@ done
 
 # Convert kappa to odi
 for Hemisphere in R L; do
-wb_command -metric-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".noddi_odi."$HighResMesh"k_fs_LR.func.gii -var kappa $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".noddi_kappa."$HighResMesh"k_fs_LR.func.gii 1>/dev/null
+	wb_command -metric-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".noddi_odi."$HighResMesh"k_fs_LR.func.gii -var kappa $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".noddi_kappa."$HighResMesh"k_fs_LR.func.gii 1>/dev/null
 done
-
 wb_command -cifti-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/noddi_odi.dscalar.nii -var kappa $AtlasSpaceResultsDWIFolder/noddi_kappa.dscalar.nii 1>/dev/null
 
 
