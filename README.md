@@ -1,5 +1,5 @@
 # NoddiSurfaceMapping
-Optimized cortical surface mapping of neurite properties using NODDI and HCP pipeline
+Optimized cortical surface mapping of neurite properties using diffsion magnetic resonace imaging (dMRI)
 
 ### Example surface map
 
