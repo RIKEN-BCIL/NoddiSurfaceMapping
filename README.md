@@ -4,9 +4,9 @@ Optimized cerebral cortical surface mapping of neurite properties using diffsion
 ### Example surface map
 
 ### Installation
-- Download NOddiSurfaceMapping.zip
-- Configure variables in the section of Setup in NoddiSUrfaceMapipng.sh depending on your local settings
-- Run NoddiSurfaceMapping.sh
+1. Download NoddiSurfaceMapping.zip and unzip
+2. Configure variables in the section of Setup in NoddiSUrfaceMapipng.sh depending on your local settings
+3. Run NoddiSurfaceMapping.sh
 
 #### Dependencies
 [AMICO][], [HCP pipeline][], [Workbench][], [FSL][]
