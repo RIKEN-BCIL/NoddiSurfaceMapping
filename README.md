@@ -6,7 +6,7 @@ Optimized cerebral cortical surface mapping of neurite properties using diffsion
 ### Installation
 1. Download NoddiSurfaceMapping.zip and unzip
 2. Configure variables in the section of Setup in NoddiSUrfaceMapipng.sh depending on your local settings
-3. Run NoddiSurfaceMapping.sh
+3. Run NoddiSurfaceMapping.sh - input data should be already preprocessed with HCP pipeline/DiffusionPreprocessing
 
 #### Dependencies
 [AMICO][], [HCP pipeline][], [Workbench][], [FSL][]
