@@ -13,6 +13,7 @@ Optimized cortical surface mapping of neurite properties using NODDI and HCP pip
 [FSL]: https://fsl.fmrib.ox.ac.uk/fsl/fslwiki "FSL"
 
 ### References
-Fukutomi, H., Glasser, M.F., Zhang, H., Autio, J.A., Coalson, T.S., Okada, T., Togashi, K., Van Essen, D.C., Hayashi, T., 2018. Neurite imaging reveals microstructural variations in human cerebral cortical gray matter. Neuroimage. [DOI][]
+Fukutomi, H., Glasser, M.F., Zhang, H., Autio, J.A., Coalson, T.S., Okada, T., Togashi, K., Van Essen, D.C., Hayashi, T., 2018. Neurite imaging reveals microstructural variations in human cerebral cortical gray matter. Neuroimage. [DOI][] [BALSA][]
 
 [DOI]: https://doi.org/10.1016/j.neuroimage.2018.02.017
+[BALSA]: https://balsa.wustl.edu/study/show/k77v
