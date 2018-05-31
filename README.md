@@ -1,7 +1,7 @@
 # NoddiSurfaceMapping
 Optimized cerebral cortical surface mapping of neurite properties using diffsion magnetic resonace imaging (dMRI)
 
-### Example surface map
+### Example NODDI surface maps (NDI and ODI) compared with myelin and cortical thickness
 ![noddi](https://user-images.githubusercontent.com/16514166/40781643-a102ca94-6517-11e8-81e1-82e9556199de.png)
 
 ### Installation
