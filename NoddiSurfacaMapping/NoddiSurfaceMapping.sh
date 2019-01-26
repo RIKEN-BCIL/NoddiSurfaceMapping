@@ -263,7 +263,7 @@ if [ ! -e $AtlasSpaceFolder/T1w_restore."$BrainOrdinatesResolution".nii.gz ] ; t
 fi
 
 #fslmaths $DWIT1wFolder/noddi_odi.nii.gz  -mul 3.1415926535897 -div 2 -tan -recip -thr 0 $DWIT1wFolder/noddi_kappa.nii.gz
-wb_command -volume-math 'max(1/tan((odi*PI)/2),0)' $DWIT1wFolder/noddi_kappa.nii.gz -var odi $DWIT1wFolder/noddi_odi.nii.gz 1>/dev/null
+${CARET7DIR}/wb_command -volume-math 'max(1/tan((odi*PI)/2),0)' $DWIT1wFolder/noddi_kappa.nii.gz -var odi $DWIT1wFolder/noddi_odi.nii.gz 1>/dev/null
 
 mkdir -p $AtlasSpaceResultsDWIFolder/RibbonVolumeToSurfaceMapping
 
