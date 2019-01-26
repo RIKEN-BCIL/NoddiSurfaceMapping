@@ -1,15 +1,22 @@
 #! /bin/bash
 
 set -e
+CMD=`echo $0 | sed -e 's/^\(.*\)\/\([^\/]*\)/\2/'`
+
 #########################################################
 # Usage & Exit
 #########################################################
 
 UsageExit () {
 
- CMD=`echo $0 | sed -e 's/^\(.*\)\/\([^\/]*\)/\2/'`
  echo "Calculate NODDI and do surface-mapping for HCP data"
  echo "Usage: $CMD <StudyFolder> <SubjectID 1> <SubjectID 2> ..."
+ echo ""
+ echo "  Options:"
+ echo "    -a <num> : species atlas (0. Human [default], 1. Macaque, 2. Marmoset)"
+ echo "    -M       : RegName=MSMAll (default: MSMSulc)"
+ echo "    -t <num>,<num>,<num> : b-value upper and lower threshold, and b=0 upper threshold"
+ echo ""
  exit 1;
 
 }
@@ -21,21 +28,34 @@ UsageExit () {
 SetUp () {
 
 # HCP PIPELINE
-HCPPIPEDIR=/mnt/FAI1/devel/git/Pipelines
-source $HCPPIPEDIR/Examples/Scripts/SetUpHCPPipeline.sh
+HCPPIPEDIR=/mnt/pub/devel/git/Pipelines
+source $HCPPIPEDIR/Examples/Scripts/SetUpHCPPipeline_RIKEN.sh
 source $HCPPIPEDIR/global/scripts/log.shlib  # Logging related functions
 
-# NODDI, requires  'AMICO', 'Camino' and 'matlab' or 'python and pythonspams' 
-NODDIHCP="/usr/local/HCP-RIKEN/NODDI"				# path to NoddiSurfaceMapping
-AMICODIR="/usr/local/HCP-RIKEN/NODDI/AMICO-master"		# path to AMICO dir
-AMICODATADIR="/data/HCP-RIKEN/FAI1/AMICO"                  	# path to AMICO data dir
-AMICOPROTOCOL="PROTOCOL_$$"                               	
-CAMINODIR="/usr/local/camino"					# path to Camino
+# NODDI, requires  'AMICO', 'Camino' and 'matlab' or 'python and pythonspams'
+NODDIHCP="/mnt/pub/devel/HCP-RIKEN/NODDI"				# path to NoddiSurfaceMapping
+AMICODIR="/mnt/pub/devel/HCP-RIKEN/NODDI/AMICO-master"		# path to AMICO dir
+AMICODATADIR="/tmp"                  	# path to AMICO data dir
+AMICOPROTOCOL="PROTOCOL_$$"
 RunMode="0"  							# 0: Matlab, 1: Python
 
 # References:
 # NODDI: http://mig.cs.ucl.ac.uk/index.php?n=Tutorial.NODDImatlab
 # AMICO: https://github.com/daducci/AMICO
+
+RegName="MSMSulc"
+Species="0"
+thr="3100,100,50" #b-value upper and lower threshold, b=0 upper threshold for HCP
+while getopts Ma:t: OPT
+ do
+ case "$OPT" in
+   "a" ) export Species="$OPTARG";;
+   "M" ) export RegName="MSMAll";;
+   "t" ) thr="$OPTARG";;
+    * )  Usage_exit;;
+ esac
+done;
+shift `expr $OPTIND - 1`
 
 # Folder Name
 T1wFOLDER="T1w"
@@ -62,31 +82,31 @@ AtlasSpaceFolder=$StudyFolder/$Subject/$AtlasSpaceFOLDER
 ribbonLlabel=3
 ribbonRlabel=42
 ROIFolder=$AtlasSpaceFolder/ROIs
-BrainOrdinatesResolutionImg="`imglob ${ROIFolder}/Atlas_ROIs*`"
-echo BrainOrdinatesResolutionImg=$BrainOrdinatesResolutionImg
-BrainOrdinatesResolution="`basename $BrainOrdinatesResolutionImg | sed -e 's/Atlas_ROIs\.//'`"
+
+# Which SPECIES
+case $Species in
+ 0)	export SPECIES=Human
+	HighResMesh=164
+	LowResMeshes=32  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
+	BrainOrdinatesResolution=2
+	;;
+ 1) 	export SPECIES=Macaque
+	HighResMesh=164
+	LowResMeshes=10  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
+	BrainOrdinatesResolution=1.25
+	;;
+ 2)	export SPECIES=Marmoset
+	HighResMesh=164
+	LowResMeshes=2  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
+	BrainOrdinatesResolution=1.0
+	;;
+ *) echo "Not yet supportted atlas species: $Species"; exit 1
+esac
+
 NODDIMappingFWHM="`echo "$BrainOrdinatesResolution * 2.5" | bc -l`"
 NODDIMappingSigma=`echo "$NODDIMappingFWHM / ( 2 * ( sqrt ( 2 * l ( 2 ) ) ) )" | bc -l`
 SmoothingFWHM="$BrainOrdinatesResolution"
 SmoothingSigma=`echo "$SmoothingFWHM / ( 2 * ( sqrt ( 2 * l ( 2 ) ) ) )" | bc -l`
-
-if [ "$SPECIES" = "" ] ; then SPECIES=Human ; fi
-
-if [ "$SPECIES" = "Human" ] ; then
- #RegName="reg.reg_LR" #reg.reg_LR, MSMSulc
- RegName=MSMSulc
- #RegName=MSMAll
- HighResMesh=164
- LowResMeshes=32  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last 
-elif [ "$SPECIES" = "Macaque" ] || [ "$SPECIES" = "Macaque_MNI" ] ; then
- RegName="MSMSulc" #reg.reg_LR, MSMSulc
- HighResMesh=164
- LowResMeshes=10  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last 
-elif [ "$SPECIES" = "Marmoset" ] ; then
- RegName="MSMSulc" #reg.reg_LR, MSMSulc
- HighResMesh=164
- LowResMeshes=2  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last 
-fi
 
 if [ ! -e "$AtlasSpaceFolder" ] ; then
  echo "Error: Cannot find $AtlasSpaceFolder"; exit 1;
@@ -106,10 +126,22 @@ DTIFit () {
 
 log_Msg "Start: DTIFit"
 
-bthresh=3100 # b-value threshold for DTI 
+thr=(`echo $thr | sed -e 's/,/ /g'`)
+buthresh="${thr[0]}" # b-value threshold for DTI
+blthresh="${thr[1]}" # b-value threshold for DTI
+b0thresh="${thr[2]}"   # b0 volume threshold for DTI b0
 
+log_Msg "b-value upper threshhold: $buthresh"
+log_Msg "b-value lower threshhold: $blthresh"
+log_Msg "b=0 volume threshhold: $b0thresh"
+
+
+if [ -e $DWIT1wFolder/dti_dwi.txt ] ; then rm $DWIT1wFolder/dti_dwi.txt; fi
+j=0;for i in `cat $DWIT1wFolder/bvals` ; do if [ `echo $i | awk '{printf "%d",$1}'` -le $buthresh ] && [ `echo $i | awk '{printf "%d",$1}'` -ge $blthresh ] ; then j=`zeropad $j 4`; echo -n "vol${j} ">> $DWIT1wFolder/dti_dwi.txt;fi;j=`expr $j + 1`;done
+if [ -e $DWIT1wFolder/dti_b0.txt ] ; then rm $DWIT1wFolder/dti_b0.txt; fi
+j=0;for i in `cat $DWIT1wFolder/bvals` ; do if [ `echo $i | awk '{printf "%d",$1}'` -le $b0thresh ] ; then j=`zeropad $j 4`; echo -n "vol${j} ">> $DWIT1wFolder/dti_b0.txt;fi;j=`expr $j + 1`;done
 if [ -e $DWIT1wFolder/dti_vol.txt ] ; then rm $DWIT1wFolder/dti_vol.txt; fi
-j=0;for i in `cat $DWIT1wFolder/bvals` ; do if [ `echo $i | awk '{printf "%d",$1}'` -lt $bthresh ] ; then j=`zeropad $j 4`; echo -n "vol${j} ">> $DWIT1wFolder/dti_vol.txt;fi;j=`expr $j + 1`;done
+cat $DWIT1wFolder/dti_b0.txt $DWIT1wFolder/dti_dwi.txt | sort > $DWIT1wFolder/dti_vol.txt
 
 if [ -e $DWIT1wFolder/dti_bvecs ] ; then rm $DWIT1wFolder/dti_bvecs;fi
 touch $DWIT1wFolder/dti_bvecs;
@@ -129,7 +161,7 @@ if [ -e $DWIT1wFolder/dti_vollist.txt ] ; then rm $DWIT1wFolder/dti_vollist.txt;
 for i in `cat $DWIT1wFolder/dti_vol.txt`; do echo $DWIT1wFolder/$i >> $DWIT1wFolder/dti_vollist.txt; done
 fslmerge -t $DWIT1wFolder/dti_data `cat $DWIT1wFolder/dti_vollist.txt`
 dtifit  -k $DWIT1wFolder/dti_data.nii.gz -o $DWIT1wFolder/dti -m $DWIT1wFolder/nodif_brain_mask -r $DWIT1wFolder/dti_bvecs -b $DWIT1wFolder/dti_bvals --sse
-imrm $DWIT1wFolder/vol????.nii.gz $DWIT1wFolder/dti_data.nii.gz 
+imrm $DWIT1wFolder/vol????.nii.gz $DWIT1wFolder/dti_data.nii.gz
 rm $DWIT1wFolder/dti_bvecstmp $DWIT1wFolder/dti_bvecs $DWIT1wFolder/dti_bvals $DWIT1wFolder/dti_vollist.txt
 
 }
@@ -228,7 +260,7 @@ wb_command -volume-math 'max(1/tan((odi*PI)/2),0)' $DWIT1wFolder/noddi_kappa.nii
 mkdir -p $AtlasSpaceResultsDWIFolder/RibbonVolumeToSurfaceMapping
 
 for vol in dti_FA dti_MD noddi_kappa noddi_ficvf ; do
- if [ `imtest $DWIT1wFolder/${vol}.nii.gz` = 1 ] ; then 
+ if [ `imtest $DWIT1wFolder/${vol}.nii.gz` = 1 ] ; then
   # Volume-to-surface-mapping
   ${CARET7DIR}/wb_command -volume-warpfield-resample $DWIT1wFolder/${vol}.nii.gz $AtlasSpaceFolder/xfms/acpc_dc2standard.nii.gz $AtlasSpaceFolder/T1w_restore.nii.gz CUBIC $AtlasSpaceResultsDWIFolder/${vol}.nii.gz -fnirt $T1wFolder/T1w_acpc_dc_restore.nii.gz &>/dev/null
   for Hemisphere in L R ; do
@@ -237,15 +269,15 @@ for vol in dti_FA dti_MD noddi_kappa noddi_ficvf ; do
    ${CARET7DIR}/wb_command -set-map-name $AtlasSpaceResultsDWIFolder/RibbonVolumeToSurfaceMapping/"$Subject"."$Hemisphere".${vol}.native.func.gii 1 "$Subject"_"$Hemisphere"_"$vol"
    ${CARET7DIR}/wb_command -metric-palette $AtlasSpaceResultsDWIFolder/RibbonVolumeToSurfaceMapping/"$Subject"."$Hemisphere".${vol}.native.func.gii MODE_AUTO_SCALE_PERCENTAGE -pos-percent 4 96 -interpolate true -palette-name videen_style -disp-pos true -disp-neg false -disp-zero false
    #LowResMesh
-   for LowResMesh in `echo $LowResMeshes | sed -e 's/@/ /g'`; do 
+   for LowResMesh in `echo $LowResMeshes | sed -e 's/@/ /g'`; do
     DownsampleFolder=$AtlasSpaceFolder/fsaverage_LR${LowResMesh}k
   ${CARET7DIR}/wb_command -metric-resample $AtlasSpaceResultsDWIFolder/RibbonVolumeToSurfaceMapping/"$Subject"."$Hemisphere".${vol}.native.func.gii "$AtlasSpaceNativeFolder"/"$Subject"."$Hemisphere".sphere.${RegName}.native.surf.gii "$DownsampleFolder"/"$Subject"."$Hemisphere".sphere."$LowResMesh"k_fs_LR.surf.gii ADAP_BARY_AREA $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$LowResMesh"k_fs_LR.func.gii -area-surfs "$AtlasSpaceNativeFolder"/"$Subject"."$Hemisphere".midthickness.native.surf.gii "$DownsampleFolder"/"$Subject"."$Hemisphere".midthickness."$LowResMesh"k_fs_LR.surf.gii -current-roi "$AtlasSpaceNativeFolder"/"$Subject"."$Hemisphere".roi.native.shape.gii
-  ${CARET7DIR}/wb_command -metric-mask $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$LowResMesh"k_fs_LR.func.gii "$DownsampleFolder"/"$Subject"."$Hemisphere".atlasroi."$LowResMesh"k_fs_LR.shape.gii $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$LowResMesh"k_fs_LR.func.gii 
+  ${CARET7DIR}/wb_command -metric-mask $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$LowResMesh"k_fs_LR.func.gii "$DownsampleFolder"/"$Subject"."$Hemisphere".atlasroi."$LowResMesh"k_fs_LR.shape.gii $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$LowResMesh"k_fs_LR.func.gii
     ${CARET7DIR}/wb_command -metric-smoothing "$DownsampleFolder"/"$Subject"."$Hemisphere".midthickness."$LowResMesh"k_fs_LR.surf.gii $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$LowResMesh"k_fs_LR.func.gii "$SmoothingSigma" $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi "$DownsampleFolder"/"$Subject"."$Hemisphere".atlasroi."$LowResMesh"k_fs_LR.shape.gii
    done
    #HighResMesh
    ${CARET7DIR}/wb_command -metric-resample $AtlasSpaceResultsDWIFolder/RibbonVolumeToSurfaceMapping/"$Subject"."$Hemisphere".${vol}.native.func.gii "$AtlasSpaceNativeFolder"/"$Subject"."$Hemisphere".sphere.${RegName}.native.surf.gii "$AtlasSpaceFolder"/"$Subject"."$Hemisphere".sphere."$HighResMesh"k_fs_LR.surf.gii ADAP_BARY_AREA $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$HighResMesh"k_fs_LR.func.gii -area-surfs "$AtlasSpaceNativeFolder"/"$Subject"."$Hemisphere".midthickness.native.surf.gii "$AtlasSpaceFolder"/"$Subject"."$Hemisphere".midthickness."$HighResMesh"k_fs_LR.surf.gii -current-roi "$AtlasSpaceNativeFolder"/"$Subject"."$Hemisphere".roi.native.shape.gii
-   ${CARET7DIR}/wb_command -metric-mask $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$HighResMesh"k_fs_LR.func.gii "$AtlasSpaceFolder"/"$Subject"."$Hemisphere".atlasroi."$HighResMesh"k_fs_LR.shape.gii $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$HighResMesh"k_fs_LR.func.gii 
+   ${CARET7DIR}/wb_command -metric-mask $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$HighResMesh"k_fs_LR.func.gii "$AtlasSpaceFolder"/"$Subject"."$Hemisphere".atlasroi."$HighResMesh"k_fs_LR.shape.gii $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$HighResMesh"k_fs_LR.func.gii
    ${CARET7DIR}/wb_command -metric-smoothing "$AtlasSpaceFolder"/"$Subject"."$Hemisphere".midthickness."$HighResMesh"k_fs_LR.surf.gii $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}."$HighResMesh"k_fs_LR.func.gii "$SmoothingSigma" $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}_s"$SmoothingFWHM"."$HighResMesh"k_fs_LR.func.gii -roi "$AtlasSpaceFolder"/"$Subject"."$Hemisphere".atlasroi."$HighResMesh"k_fs_LR.shape.gii
   done
 
@@ -254,7 +286,7 @@ for vol in dti_FA dti_MD noddi_kappa noddi_ficvf ; do
   ${CARET7DIR}/wb_command -volume-parcel-resampling $AtlasSpaceResultsDWIFolder/${vol}."$BrainOrdinatesResolution".nii.gz "$ROIFolder"/ROIs."$BrainOrdinatesResolution".nii.gz "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz $SmoothingSigma $AtlasSpaceResultsDWIFolder/${vol}_AtlasSubcortical_s"$SmoothingFWHM".nii.gz -fix-zeros
   # Merge surface and subcortical volume to create cifti
   LowReMesh=`echo $LowResMeshes | sed -e 's/@/ /g' | awk '{print $NF}'`
-  ${CARET7DIR}/wb_command -cifti-create-dense-scalar $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -volume $AtlasSpaceResultsDWIFolder/${vol}_AtlasSubcortical_s"$SmoothingFWHM".nii.gz "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz -left-metric $AtlasSpaceResultsDWIFolder/"$Subject".L.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-left "$DownsampleFolder"/"$Subject".L.atlasroi."$LowResMesh"k_fs_LR.shape.gii -right-metric $AtlasSpaceResultsDWIFolder/"$Subject".R.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-right "$DownsampleFolder"/"$Subject".R.atlasroi."$LowResMesh"k_fs_LR.shape.gii 
+  ${CARET7DIR}/wb_command -cifti-create-dense-scalar $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -volume $AtlasSpaceResultsDWIFolder/${vol}_AtlasSubcortical_s"$SmoothingFWHM".nii.gz "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz -left-metric $AtlasSpaceResultsDWIFolder/"$Subject".L.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-left "$DownsampleFolder"/"$Subject".L.atlasroi."$LowResMesh"k_fs_LR.shape.gii -right-metric $AtlasSpaceResultsDWIFolder/"$Subject".R.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-right "$DownsampleFolder"/"$Subject".R.atlasroi."$LowResMesh"k_fs_LR.shape.gii
   ${CARET7DIR}/wb_command -set-map-names $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -map 1 "${Subject}_${vol}"
   ${CARET7DIR}/wb_command -cifti-palette $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii MODE_AUTO_SCALE_PERCENTAGE $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -pos-percent 4 96 -interpolate true -palette-name videen_style -disp-pos true -disp-neg false -disp-zero false
  fi
@@ -262,9 +294,9 @@ done
 
 # Convert kappa to odi
 for Hemisphere in R L; do
-	wb_command -metric-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".noddi_odi."$HighResMesh"k_fs_LR.func.gii -var kappa $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".noddi_kappa."$HighResMesh"k_fs_LR.func.gii 1>/dev/null
+  ${CARET7DIR}/wb_command -metric-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".noddi_odi${Reg}."$HighResMesh"k_fs_LR.func.gii -var kappa $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".noddi_kappa${Reg}."$HighResMesh"k_fs_LR.func.gii
 done
-wb_command -cifti-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/noddi_odi.dscalar.nii -var kappa $AtlasSpaceResultsDWIFolder/noddi_kappa.dscalar.nii 1>/dev/null
+${CARET7DIR}/wb_command -cifti-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}.dscalar.nii -var kappa $AtlasSpaceResultsDWIFolder/noddi_kappa${Reg}.dscalar.nii
 
 }
 
