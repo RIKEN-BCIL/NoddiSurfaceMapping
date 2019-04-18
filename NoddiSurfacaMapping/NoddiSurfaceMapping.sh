@@ -151,7 +151,6 @@ log_Msg "b-value upper threshhold: $buthresh"
 log_Msg "b-value lower threshhold: $blthresh"
 log_Msg "b=0 volume threshhold: $b0thresh"
 
-
 if [ -e $DWIT1wFolder/dti_dwi.txt ] ; then rm $DWIT1wFolder/dti_dwi.txt; fi
 j=0;for i in `cat $DWIT1wFolder/bvals` ; do if [ `echo $i | awk '{printf "%d",$1}'` -le $buthresh ] && [ `echo $i | awk '{printf "%d",$1}'` -ge $blthresh ] ; then j=`zeropad $j 4`; echo -n "vol${j} ">> $DWIT1wFolder/dti_dwi.txt;fi;j=`expr $j + 1`;done
 if [ -e $DWIT1wFolder/dti_b0.txt ] ; then rm $DWIT1wFolder/dti_b0.txt; fi
