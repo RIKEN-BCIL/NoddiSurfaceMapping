@@ -28,10 +28,10 @@ for i in $b0; do
   j=`zeropad $i 4`
   fslroi ${dwi} ${tmp}_${j} $i 1
 done
-num=`imglob -onerperimage ${tmp}_???? | wc -w`
+num=`imglob -onerperimage ${tmp}_* | wc -w`
 if [ "$num" = 0 ] ; then echo "Error: Cannot find b0 volumes"; exit 1;fi
 
-fslmerge -t ${tmp}_merge `imglob -onerperimage ${tmp}_????`
+fslmerge -t ${tmp}_merge `imglob -onerperimage ${tmp}_*`
 fslmaths ${tmp}_merge -Tmean ${out}_mean -odt float
 fslmaths ${tmp}_merge -Tstd ${out}_std -odt float
 fslmaths ${out}_mean -div ${out}_std ${out}_snr -odt float

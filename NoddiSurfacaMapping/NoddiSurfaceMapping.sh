@@ -248,13 +248,13 @@ else
 	echo "ERROR: cannot find which RunMode (matlab or python) should be used!"; exit 1;
 fi
 
-if [ ! -e $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_ICVF.nii ] ; then
+if [ `imtest $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_ICVF` != 1 ] ; then
  echo "ERROR: NODDI FIT_ICVF is not calculated. Exit"; exit 1;
 fi
-fslchfiletype NIFTI_GZ $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_ICVF.nii $DWIT1wFolder/noddi_ficvf.nii.gz
-fslchfiletype NIFTI_GZ $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_ISOVF.nii $DWIT1wFolder/noddi_fiso.nii.gz
-fslchfiletype NIFTI_GZ $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_OD.nii $DWIT1wFolder/noddi_odi.nii.gz
-fslchfiletype NIFTI_GZ $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_dir.nii $DWIT1wFolder/noddi_dir.nii.gz
+fslmaths $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_ICVF $DWIT1wFolder/noddi_ficvf
+fslmaths $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_ISOVF $DWIT1wFolder/noddi_fiso
+fslmaths $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_OD $DWIT1wFolder/noddi_odi
+fslmaths $AMICODATADIR/$protocol/$subjdir/AMICO/NODDI/FIT_dir $DWIT1wFolder/noddi_dir
 \rm -rf $AMICODATADIR/$protocol/$subjdir
 \rm -rf $AMICODATADIR/$protocol
 
