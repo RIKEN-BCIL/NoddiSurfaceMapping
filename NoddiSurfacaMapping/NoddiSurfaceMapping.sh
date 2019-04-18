@@ -29,8 +29,7 @@ SetUp () {
 
 # HCP PIPELINE
 HCPPIPEDIR=/mnt/pub/devel/git/Pipelines
-source $HCPPIPEDIR/Examples/Scripts/SetUpHCPPipeline_RIKEN.sh
-source $HCPPIPEDIR/global/scripts/log.shlib  # Logging related functions
+EnvironmentScript=$HCPPIPEDIR/Examples/Scripts/SetUpHCPPipeline_RIKEN.sh
 
 # NODDI, requires  'AMICO', 'Camino' and 'matlab' or 'python and pythonspams'
 NODDIHCP="/mnt/pub/devel/HCP-RIKEN/NODDI"				# path to NoddiSurfaceMapping
@@ -92,21 +91,29 @@ case $Species in
 	;;
  1) 	export SPECIES=Macaque
 	HighResMesh=164
-	LowResMeshes=10  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
-	BrainOrdinatesResolution=1.25
+	LowResMeshes=32@10  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
+	BrainOrdinatesResolution=0.5@1.25
 	;;
  2)	export SPECIES=Marmoset
 	HighResMesh=164
-	LowResMeshes=2  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
-	BrainOrdinatesResolution=1.0
+	LowResMeshes=32@2  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
+	BrainOrdinatesResolution=0.2@1.0
 	;;
  *) echo "Not yet supportted atlas species: $Species"; exit 1
 esac
 
-NODDIMappingFWHM="`echo "$BrainOrdinatesResolution * 2.5" | bc -l`"
+source $EnvironmentScript
+source $HCPPIPEDIR/global/scripts/log.shlib  # Logging related functions
+
+RegName=$Reg
+DiffRes="`fslval $DWIT1wFolder/data.nii.gz pixdim1 | awk '{printf "%0.2f",$1}'`"
+NODDIMappingFWHM="`echo "$DiffRes * 2.5" | bc -l`"
 NODDIMappingSigma=`echo "$NODDIMappingFWHM / ( 2 * ( sqrt ( 2 * l ( 2 ) ) ) )" | bc -l`
-SmoothingFWHM="$BrainOrdinatesResolution"
 SmoothingSigma=`echo "$SmoothingFWHM / ( 2 * ( sqrt ( 2 * l ( 2 ) ) ) )" | bc -l`
+SmoothingFWHM="$DiffRes"
+LowResMeshes=(`echo $LowResMeshes | sed -e 's/@/ /g'`)
+BrainOrdinatesResolutions=(`echo $BrainOrdinatesResolutions | sed -e 's/@/ /g'`)
+
 
 if [ ! -e "$AtlasSpaceFolder" ] ; then
  echo "Error: Cannot find $AtlasSpaceFolder"; exit 1;
@@ -291,7 +298,7 @@ for vol in dti_FA dti_MD noddi_kappa noddi_ficvf ; do
    ${CARET7DIR}/wb_command -set-map-name $AtlasSpaceResultsDWIFolder/RibbonVolumeToSurfaceMapping/"$Subject"."$Hemisphere".${vol}.native.func.gii 1 "$Subject"_"$Hemisphere"_"$vol"
    ${CARET7DIR}/wb_command -metric-palette $AtlasSpaceResultsDWIFolder/RibbonVolumeToSurfaceMapping/"$Subject"."$Hemisphere".${vol}.native.func.gii MODE_AUTO_SCALE_PERCENTAGE -pos-percent 4 96 -interpolate true -palette-name videen_style -disp-pos true -disp-neg false -disp-zero false
    #LowResMesh
-   for LowResMesh in `echo $LowResMeshes | sed -e 's/@/ /g'`; do
+   for LowResMesh in ${LowResMeshes[@]}; do
     DownsampleFolder=$AtlasSpaceFolder/fsaverage_LR${LowResMesh}k
     ${CARET7DIR}/wb_command -metric-resample $AtlasSpaceResultsDWIFolder/RibbonVolumeToSurfaceMapping/"$Subject"."$Hemisphere".${vol}.native.func.gii "$AtlasSpaceNativeFolder"/"$Subject"."$Hemisphere".sphere.${RegName}.native.surf.gii "$DownsampleFolder"/"$Subject"."$Hemisphere".sphere."$LowResMesh"k_fs_LR.surf.gii ADAP_BARY_AREA $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}${Reg}."$LowResMesh"k_fs_LR.func.gii -area-surfs "$AtlasSpaceNativeFolder"/"$Subject"."$Hemisphere".midthickness.native.surf.gii "$DownsampleFolder"/"$Subject"."$Hemisphere".midthickness."$LowResMesh"k_fs_LR.surf.gii -current-roi "$AtlasSpaceNativeFolder"/"$Subject"."$Hemisphere".roi.native.shape.gii
     ${CARET7DIR}/wb_command -metric-mask $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}${Reg}."$LowResMesh"k_fs_LR.func.gii "$DownsampleFolder"/"$Subject"."$Hemisphere".atlasroi."$LowResMesh"k_fs_LR.shape.gii $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".${vol}${Reg}."$LowResMesh"k_fs_LR.func.gii
@@ -304,21 +311,44 @@ for vol in dti_FA dti_MD noddi_kappa noddi_ficvf ; do
   done
 
   # Do volume parcel resampling for subcortical gray matter
-  ${CARET7DIR}/wb_command -volume-warpfield-resample $DWIT1wFolder/${vol}.nii.gz $AtlasSpaceFolder/xfms/acpc_dc2standard.nii.gz $AtlasSpaceFolder/T1w_restore."$BrainOrdinatesResolution".nii.gz CUBIC $AtlasSpaceResultsDWIFolder/${vol}."$BrainOrdinatesResolution".nii.gz -fnirt $T1wFolder/T1w_acpc_dc_restore.nii.gz &> /dev/null
-  ${CARET7DIR}/wb_command -volume-parcel-resampling $AtlasSpaceResultsDWIFolder/${vol}."$BrainOrdinatesResolution".nii.gz "$ROIFolder"/ROIs."$BrainOrdinatesResolution".nii.gz "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz $SmoothingSigma $AtlasSpaceResultsDWIFolder/${vol}_AtlasSubcortical_s"$SmoothingFWHM".nii.gz -fix-zeros
+  for BrainOrdinatesResolution in ${BrainOrdinatesResolutions[@]} ; do
+    ${CARET7DIR}/wb_command -volume-warpfield-resample $DWIT1wFolder/${vol}.nii.gz $AtlasSpaceFolder/xfms/acpc_dc2standard.nii.gz $AtlasSpaceFolder/T1w_restore."$BrainOrdinatesResolution".nii.gz CUBIC $AtlasSpaceResultsDWIFolder/${vol}."$BrainOrdinatesResolution".nii.gz -fnirt $T1wFolder/T1w_acpc_dc_restore.nii.gz &> /dev/null
+    if [ ! -e "$ROIFolder"/ROIs."$BrainOrdinatesResolution".nii.gz ] ; then
+      flirt -in $AtlasSpaceFolder/wmparc.nii.gz -applyisoxfm $BrainOrdinatesResolution -ref $AtlasSpaceFolder/wmparc.nii.gz -o "$ROIFolder"/ROIs.${BrainOrdinatesResolution}.nii.gz -interp nearestneighbour
+      ${CARET7DIR}/wb_command -volume-label-import "$ROIFolder"/ROIs.${BrainOrdinatesResolution}.nii.gz $HCPPIPEDIR/global/config/FreeSurferSubcorticalLabelTableLut.txt "$ROIFolder"/ROIs.${BrainOrdinatesResolution}.nii.gz -discard-others -drop-unused-labels
+    fi
+    ${CARET7DIR}/wb_command -volume-parcel-resampling $AtlasSpaceResultsDWIFolder/${vol}."$BrainOrdinatesResolution".nii.gz "$ROIFolder"/ROIs."$BrainOrdinatesResolution".nii.gz "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz $SmoothingSigma $AtlasSpaceResultsDWIFolder/${vol}_AtlasSubcortical_s"$SmoothingFWHM".nii.gz -fix-zeros
+  done
+
   # Merge surface and subcortical volume to create cifti
-  LowReMesh=`echo $LowResMeshes | sed -e 's/@/ /g' | awk '{print $NF}'`
+  i=0
+  for LowResMesh in ${LowResMeshes[@]}; do
   ${CARET7DIR}/wb_command -cifti-create-dense-scalar $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -volume $AtlasSpaceResultsDWIFolder/${vol}_AtlasSubcortical_s"$SmoothingFWHM".nii.gz "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz -left-metric $AtlasSpaceResultsDWIFolder/"$Subject".L.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-left "$DownsampleFolder"/"$Subject".L.atlasroi."$LowResMesh"k_fs_LR.shape.gii -right-metric $AtlasSpaceResultsDWIFolder/"$Subject".R.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-right "$DownsampleFolder"/"$Subject".R.atlasroi."$LowResMesh"k_fs_LR.shape.gii
   ${CARET7DIR}/wb_command -set-map-names $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -map 1 "${Subject}_${vol}"
   ${CARET7DIR}/wb_command -cifti-palette $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii MODE_AUTO_SCALE_PERCENTAGE $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -pos-percent 4 96 -interpolate true -palette-name videen_style -disp-pos true -disp-neg false -disp-zero false
+  i=`expr $i + 1`
+  done
  fi
 done
 
 # Convert kappa to odi
-for Hemisphere in R L; do
-  ${CARET7DIR}/wb_command -metric-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".noddi_odi${Reg}."$HighResMesh"k_fs_LR.func.gii -var kappa $AtlasSpaceResultsDWIFolder/"$Subject"."$Hemisphere".noddi_kappa${Reg}."$HighResMesh"k_fs_LR.func.gii
+for LowResMesh in ${LowResMeshes[@]}; do
+ ${CARET7DIR}/wb_command -cifti-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}."$LowResMesh"k_fs_LR.dscalar.nii -var kappa $AtlasSpaceResultsDWIFolder/noddi_kappa${Reg}."$LowResMesh"k_fs_LR.dscalar.nii
 done
-${CARET7DIR}/wb_command -cifti-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}.dscalar.nii -var kappa $AtlasSpaceResultsDWIFolder/noddi_kappa${Reg}.dscalar.nii
+
+# Remove files
+for vol in dti_FA dti_MD noddi_kappa noddi_ficvf data_snr; do
+ for Hemisphere in R L; do
+  for LowResMesh in ${LowResMeshes[@]} ; do
+   \rm -rf $AtlasSpaceResultsDWIFolder/"$Subject".${Hemisphere}.${vol}${Reg}."$LowResMesh"k_fs_LR.func.gii
+   \rm -rf $AtlasSpaceResultsDWIFolder/"$Subject".${Hemisphere}.${vol}${Reg}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii
+  done
+ done
+ for BrainOrdinatesResolution in ${BrainOrdinatesResolutions[@]} ; do
+  \rm -rf $AtlasSpaceResultsDWIFolder/${vol}."$BrainOrdinatesResolution".nii.gz
+  \rm -rf $AtlasSpaceResultsDWIFolder/${vol}_AtlasSubcortical."$BrainOrdinatesResolution"_s"$SmoothingFWHM".nii.gz
+ done
+done
 
 }
 
