@@ -16,10 +16,12 @@ UsageExit () {
  echo "    -a <num> : species atlas (0. Human [default], 1. Macaque, 2. Marmoset)"
  echo "    -M       : RegName=MSMAll (default: MSMSulc)"
  echo "    -t <num>,<num>,<num> : b-value upper and lower threshold, and b=0 upper threshold (default: 3100,100,50)"
+ echo "    -s       : do not calculate NODDI but only perform surface mapping"
  echo ""
  exit 1;
 
 }
+if [ "$2" = "" ] ; then UsageExit; fi
 
 #########################################################
 # Setup
@@ -45,12 +47,14 @@ RunMode="0"  							# 0: Matlab, 1: Python
 RegName="MSMSulc"
 Species="0"
 thr="3100,100,50" #b-value upper and lower threshold, b=0 upper threshold for HCP
-while getopts Ma:t: OPT
+CalcNODDI="YES"
+while getopts Ma:t:s OPT
  do
  case "$OPT" in
    "a" ) export Species="$OPTARG";;
    "M" ) export RegName="MSMAll";;
    "t" ) thr="$OPTARG";;
+   "s" ) CalcNODDI="NO";;
     * )  Usage_exit;;
  esac
 done;
@@ -371,8 +375,10 @@ for Subject in $Subjects ; do
  log_Msg "Start $CMD for subject: $Subject at `date -R`"
  SetUp
  log_Msg "SPECIES=$SPECIES"
- DTIFit
- NODDIFit
+ if [ "$CalcNODDI" != "NO" ] ; then
+   DTIFit
+   NODDIFit
+ fi
  DiffusionStats
  DiffusionSurfaceMapping
  log_Msg "Finished subject: $Subject at `date -R`"
