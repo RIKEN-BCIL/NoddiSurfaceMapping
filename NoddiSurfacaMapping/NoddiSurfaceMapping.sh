@@ -279,11 +279,11 @@ for BrainOrdinatesResolution in ${BrainOrdinatesResolutions[@]} ; do
  fi
 done
 
-#fslmaths $DWIT1wFolder/noddi_odi.nii.gz  -mul 3.1415926535897 -div 2 -tan -recip -thr 0 $DWIT1wFolder/noddi_kappa.nii.gz
 ${CARET7DIR}/wb_command -volume-math 'max(1/tan((odi*PI)/2),0)' $DWIT1wFolder/noddi_kappa.nii.gz -var odi $DWIT1wFolder/noddi_odi.nii.gz 1>/dev/null
 
 mkdir -p $AtlasSpaceResultsDWIFolder/RibbonVolumeToSurfaceMapping
 
+# SNR surface mapping
 ${CARET7DIR}/wb_command -volume-warpfield-resample $DWIT1wFolder/data_snr.nii.gz $AtlasSpaceFolder/xfms/acpc_dc2standard.nii.gz $AtlasSpaceFolder/T1w_restore.nii.gz CUBIC $AtlasSpaceResultsDWIFolder/data_snr.nii.gz -fnirt $T1wFolder/T1w_acpc_dc_restore.nii.gz
 
 for Hemisphere in L R ; do
