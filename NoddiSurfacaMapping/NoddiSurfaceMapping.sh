@@ -125,6 +125,8 @@ fi
 
 if [ "$RegName" = "MSMAll" ] ; then
 	Reg="_MSMAll"
+else
+  Reg=""
 fi
 
 }
