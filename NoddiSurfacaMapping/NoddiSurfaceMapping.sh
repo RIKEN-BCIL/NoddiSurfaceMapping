@@ -105,7 +105,6 @@ esac
 source $EnvironmentScript
 source $HCPPIPEDIR/global/scripts/log.shlib  # Logging related functions
 
-RegName=$Reg
 DiffRes="`fslval $DWIT1wFolder/data.nii.gz pixdim1 | awk '{printf "%0.2f",$1}'`"
 NODDIMappingFWHM="`echo "$DiffRes * 2.5" | bc -l`"
 NODDIMappingSigma=`echo "$NODDIMappingFWHM / ( 2 * ( sqrt ( 2 * l ( 2 ) ) ) )" | bc -l`
