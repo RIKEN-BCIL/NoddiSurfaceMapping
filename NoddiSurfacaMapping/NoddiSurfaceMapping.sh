@@ -234,7 +234,7 @@ sys.path.append('$AMICODATADIR');
 import amico;
 amico.core.setup();
 ae = amico.Evaluation("$protocoldir","$subjdir");
-ae.load_data(dwi_filename = "data.nii" , scheme_filename = "dwi.scheme", mask_filename = "nodif_brain_mask.nii" , b0_thr = 0);
+ae.load_data(dwi_filename = "$AMICODATADIR/$protocol/$subjdir/data.nii" , scheme_filename = "$AMICODATADIR/$protocol/$subjdir/dwi.scheme", mask_filename = "$AMICODATADIR/$protocol/$subjdir/nodif_brain_mask.nii" , b0_thr = 0);
 ae.set_model("NODDI");
 ae.generate_kernels();
 ae.load_kernels();
