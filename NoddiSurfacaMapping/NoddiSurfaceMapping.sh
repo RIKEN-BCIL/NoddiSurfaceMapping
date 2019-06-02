@@ -92,17 +92,17 @@ case $Species in
  0)	export SPECIES=Human
 	HighResMesh=164
 	LowResMeshes=32  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
-	BrainOrdinatesResolution=2
+	BrainOrdinatesResolutions=2
 	;;
  1) 	export SPECIES=Macaque
 	HighResMesh=164
 	LowResMeshes=32@10  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
-	BrainOrdinatesResolution=0.5@1.25
+	BrainOrdinatesResolutions=0.5@1.25
 	;;
  2)	export SPECIES=Marmoset
 	HighResMesh=164
 	LowResMeshes=32@2  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
-	BrainOrdinatesResolution=0.2@1.0
+	BrainOrdinatesResolutions=0.2@1.0
 	;;
  *) echo "Not yet supportted atlas species: $Species"; exit 1
 esac
@@ -113,8 +113,8 @@ source $HCPPIPEDIR/global/scripts/log.shlib  # Logging related functions
 DiffRes="`fslval $DWIT1wFolder/data.nii.gz pixdim1 | awk '{printf "%0.2f",$1}'`"
 NODDIMappingFWHM="`echo "$DiffRes * 2.5" | bc -l`"
 NODDIMappingSigma=`echo "$NODDIMappingFWHM / ( 2 * ( sqrt ( 2 * l ( 2 ) ) ) )" | bc -l`
-SmoothingSigma=`echo "$SmoothingFWHM / ( 2 * ( sqrt ( 2 * l ( 2 ) ) ) )" | bc -l`
 SmoothingFWHM="$DiffRes"
+SmoothingSigma=`echo "$SmoothingFWHM / ( 2 * ( sqrt ( 2 * l ( 2 ) ) ) )" | bc -l`
 LowResMeshes=(`echo $LowResMeshes | sed -e 's/@/ /g'`)
 BrainOrdinatesResolutions=(`echo $BrainOrdinatesResolutions | sed -e 's/@/ /g'`)
 
@@ -145,7 +145,7 @@ log_Msg "Start: DTIFit"
 thr=(`echo $thr | sed -e 's/,/ /g'`)
 buthresh="${thr[0]}" # b-value threshold for DTI
 blthresh="${thr[1]}" # b-value threshold for DTI
-b0thresh="${thr[2]}"   # b0 volume threshold for DTI b0
+b0thresh="${thr[2]}" # b0 volume threshold for DTI b0
 
 log_Msg "b-value upper threshhold: $buthresh"
 log_Msg "b-value lower threshhold: $blthresh"
@@ -232,7 +232,7 @@ sys.path.append('$AMICODIR/python');
 sys.path.append('$AMICODATADIR');
 import amico;
 amico.core.setup();
-ae = amico.Evaluation("$protocoldir","$subjdir");
+ae = amico.Evaluation("$protocol","$subjdir");
 ae.load_data(dwi_filename = "$AMICODATADIR/$protocol/$subjdir/data.nii" , scheme_filename = "$AMICODATADIR/$protocol/$subjdir/dwi.scheme", mask_filename = "$AMICODATADIR/$protocol/$subjdir/nodif_brain_mask.nii" , b0_thr = 0);
 ae.set_model("NODDI");
 ae.generate_kernels();
@@ -335,7 +335,7 @@ for vol in dti_FA dti_MD noddi_kappa noddi_ficvf data_snr; do
   for LowResMesh in ${LowResMeshes[@]}; do
    BrainOrdinatesResolution="${BrainOrdinatesResolutions[$i]}"
    DownsampleFolder=$AtlasSpaceFolder/fsaverage_LR${LowResMesh}k
-   ${CARET7DIR}/wb_command -cifti-create-dense-scalar $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -volume $AtlasSpaceResultsDWIFolder/${vol}_AtlasSubcortical_s"$SmoothingFWHM".nii.gz "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz -left-metric $AtlasSpaceResultsDWIFolder/"$Subject".L.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-left "$DownsampleFolder"/"$Subject".L.atlasroi."$LowResMesh"k_fs_LR.shape.gii -right-metric $AtlasSpaceResultsDWIFolder/"$Subject".R.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-right "$DownsampleFolder"/"$Subject".R.atlasroi."$LowResMesh"k_fs_LR.shape.gii
+   ${CARET7DIR}/wb_command -cifti-create-dense-scalar $AtlasSpaceResultsDWIFolder/${vol}${Reg}."$LowResMesh"k_fs_LR.dscalar.nii -volume $AtlasSpaceResultsDWIFolder/${vol}_AtlasSubcortical_s"$SmoothingFWHM".nii.gz "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz -left-metric $AtlasSpaceResultsDWIFolder/"$Subject".L.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-left "$DownsampleFolder"/"$Subject".L.atlasroi."$LowResMesh"k_fs_LR.shape.gii -right-metric $AtlasSpaceResultsDWIFolder/"$Subject".R.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-right "$DownsampleFolder"/"$Subject".R.atlasroi."$LowResMesh"k_fs_LR.shape.gii
    ${CARET7DIR}/wb_command -set-map-names $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -map 1 "${Subject}_${vol}"
    ${CARET7DIR}/wb_command -cifti-palette $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii MODE_AUTO_SCALE_PERCENTAGE $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -pos-percent 4 96 -interpolate true -palette-name videen_style -disp-pos true -disp-neg false -disp-zero false
    i=`expr $i + 1`
@@ -378,8 +378,8 @@ Subjects="$@";
 
 for Subject in $Subjects ; do
  if [ "`echo ${Subject: -1}`" = "/" ] ; then Subject=`echo ${Subject/%?/}` ;fi
- log_Msg "Start $CMD for subject: $Subject at `date -R`"
  SetUp
+ log_Msg "Start $CMD for subject: $Subject at `date -R`"
  log_Msg "SPECIES=$SPECIES"
  if [ "$CalcNODDI" != "NO" ] ; then
    DTIFit
