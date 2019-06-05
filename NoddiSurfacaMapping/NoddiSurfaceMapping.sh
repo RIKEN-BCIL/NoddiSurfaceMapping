@@ -231,6 +231,8 @@ import sys;
 sys.path.append('$AMICODIR/python');
 sys.path.append('$AMICODATADIR');
 import amico;
+import os
+os.chdir("$AMICODATADIR")
 amico.core.setup();
 ae = amico.Evaluation("$protocol","$subjdir");
 ae.load_data(dwi_filename = "$AMICODATADIR/$protocol/$subjdir/data.nii" , scheme_filename = "$AMICODATADIR/$protocol/$subjdir/dwi.scheme", mask_filename = "$AMICODATADIR/$protocol/$subjdir/nodif_brain_mask.nii" , b0_thr = 0);
@@ -336,8 +338,8 @@ for vol in dti_FA dti_MD noddi_kappa noddi_ficvf data_snr; do
    BrainOrdinatesResolution="${BrainOrdinatesResolutions[$i]}"
    DownsampleFolder=$AtlasSpaceFolder/fsaverage_LR${LowResMesh}k
    ${CARET7DIR}/wb_command -cifti-create-dense-scalar $AtlasSpaceResultsDWIFolder/${vol}${Reg}."$LowResMesh"k_fs_LR.dscalar.nii -volume $AtlasSpaceResultsDWIFolder/${vol}_AtlasSubcortical_s"$SmoothingFWHM".nii.gz "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz -left-metric $AtlasSpaceResultsDWIFolder/"$Subject".L.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-left "$DownsampleFolder"/"$Subject".L.atlasroi."$LowResMesh"k_fs_LR.shape.gii -right-metric $AtlasSpaceResultsDWIFolder/"$Subject".R.${vol}_s"$SmoothingFWHM"."$LowResMesh"k_fs_LR.func.gii -roi-right "$DownsampleFolder"/"$Subject".R.atlasroi."$LowResMesh"k_fs_LR.shape.gii
-   ${CARET7DIR}/wb_command -set-map-names $AtlasSpaceResultsDWIFolder/${vol}${Reg}.dscalar.nii -map 1 "${Subject}_${vol}"
-   ${CARET7DIR}/wb_command -cifti-palette $AtlasSpaceResultsDWIFolder/${vol}${Reg}.dscalar.nii MODE_AUTO_SCALE_PERCENTAGE $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -pos-percent 4 96 -interpolate true -palette-name videen_style -disp-pos true -disp-neg false -disp-zero false
+   ${CARET7DIR}/wb_command -set-map-names $AtlasSpaceResultsDWIFolder/${vol}${Reg}."$LowResMesh"k_fs_LR.dscalar.nii -map 1 "${Subject}_${vol}"
+   ${CARET7DIR}/wb_command -cifti-palette $AtlasSpaceResultsDWIFolder/${vol}${Reg}."$LowResMesh"k_fs_LR.dscalar.nii MODE_AUTO_SCALE_PERCENTAGE $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -pos-percent 4 96 -interpolate true -palette-name videen_style -disp-pos true -disp-neg false -disp-zero false
    i=`expr $i + 1`
   done
 done
@@ -345,6 +347,9 @@ done
 # Convert kappa to odi
 for LowResMesh in ${LowResMeshes[@]}; do
  ${CARET7DIR}/wb_command -cifti-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}."$LowResMesh"k_fs_LR.dscalar.nii -var kappa $AtlasSpaceResultsDWIFolder/noddi_kappa${Reg}."$LowResMesh"k_fs_LR.dscalar.nii
+ ${CARET7DIR}/wb_command -set-map-names $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}."$LowResMesh"k_fs_LR.dscalar.nii -map 1 "${Subject}_noddi_odi"
+ ${CARET7DIR}/wb_command -cifti-palette $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}."$LowResMesh"k_fs_LR.dscalar.nii MODE_AUTO_SCALE_PERCENTAGE $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -pos-percent 4 96 -interpolate true -palette-name videen_style -disp-pos true -disp-neg false -disp-zero false
+ i=`expr $i + 1`
 done
 
 # Remove files
