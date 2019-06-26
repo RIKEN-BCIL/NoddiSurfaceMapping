@@ -93,16 +93,19 @@ case $Species in
 	HighResMesh=164
 	LowResMeshes=32  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
 	BrainOrdinatesResolutions=2
+  BrainOrdinatesDIR=${HCPPIPEDIR}/global/templates/standard_mesh_atlases
 	;;
  1) 	export SPECIES=Macaque
 	HighResMesh=164
 	LowResMeshes=32@10  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
 	BrainOrdinatesResolutions=0.5@1.25
+  BrainOrdinatesDIR=${HCPPIPEDIR}/global/templates/standard_mesh_atlases_macaque_dedrift
 	;;
  2)	export SPECIES=Marmoset
 	HighResMesh=164
 	LowResMeshes=32@2  # Separate with "@" if needed multiple meshes (e.g. 32@10) with the grayordinate mesh at the last
 	BrainOrdinatesResolutions=0.2@1.0
+  BrainOrdinatesDIR=${HCPPIPEDIR}/global/templates/standard_mesh_atlases_marmoset
 	;;
  *) echo "Not yet supportted atlas species: $Species"; exit 1
 esac
@@ -277,6 +280,9 @@ fslmaths $AtlasSpaceFolder/ribbon.nii.gz -thr $ribbonLlabel -uthr $ribbonLlabel 
 fslmaths $AtlasSpaceFolder/ribbon.nii.gz -thr $ribbonRlabel -uthr $ribbonRlabel -bin $AtlasSpaceFolder/ribbon_R.nii.gz
 for BrainOrdinatesResolution in ${BrainOrdinatesResolutions[@]} ; do
  if [ ! -e $AtlasSpaceFolder/T1w_restore."$BrainOrdinatesResolution".nii.gz ] ; then
+  if [ ! -e "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz ] ; then
+   cp ${BrainOrdinatesDIR}/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz "$ROIFolder"/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz
+  fi
   flirt -in $AtlasSpaceFolder/T1w_restore.nii.gz -applyisoxfm "$BrainOrdinatesResolution" -ref $AtlasSpaceFolder/ROIs/Atlas_ROIs."$BrainOrdinatesResolution".nii.gz -o $AtlasSpaceFolder/T1w_restore."$BrainOrdinatesResolution".nii.gz -interp sinc
  fi
 done
