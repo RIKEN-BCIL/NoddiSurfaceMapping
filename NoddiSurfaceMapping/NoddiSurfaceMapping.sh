@@ -354,8 +354,7 @@ done
 for LowResMesh in ${LowResMeshes[@]}; do
  ${CARET7DIR}/wb_command -cifti-math 'max(2*atan(1/kappa)/PI,0)' $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}."$LowResMesh"k_fs_LR.dscalar.nii -var kappa $AtlasSpaceResultsDWIFolder/noddi_kappa${Reg}."$LowResMesh"k_fs_LR.dscalar.nii
  ${CARET7DIR}/wb_command -set-map-names $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}."$LowResMesh"k_fs_LR.dscalar.nii -map 1 "${Subject}_noddi_odi"
- ${CARET7DIR}/wb_command -cifti-palette $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}."$LowResMesh"k_fs_LR.dscalar.nii MODE_AUTO_SCALE_PERCENTAGE $AtlasSpaceResultsDWIFolder/${vol}.dscalar.nii -pos-percent 4 96 -interpolate true -palette-name videen_style -disp-pos true -disp-neg false -disp-zero false
- i=`expr $i + 1`
+ ${CARET7DIR}/wb_command -cifti-palette $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}."$LowResMesh"k_fs_LR.dscalar.nii MODE_AUTO_SCALE_PERCENTAGE $AtlasSpaceResultsDWIFolder/noddi_odi${Reg}."$LowResMesh"k_fs_LR.dscalar.nii -pos-percent 4 96 -interpolate true -palette-name videen_style -disp-pos true -disp-neg false -disp-zero false
 done
 
 # Remove files
