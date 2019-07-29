@@ -268,7 +268,7 @@ DiffusionStats () {
 
 log_Msg "DiffusionStats"
 
-${NODDIHCP}/scripts/dwistats $DWIT1wFolder/data.nii.gz $DWIT1wFolder/bvals $DWIT1wFolder/data $DWIT1wFolder/nodif_brain_mask.nii.gz
+${NODDIHCP}/scripts/dwistats $DWIT1wFolder/data.nii.gz $DWIT1wFolder/bvals $DWIT1wFolder/data $DWIT1wFolder/nodif_brain_mask.nii.gz $b0thresh
 
 }
 
