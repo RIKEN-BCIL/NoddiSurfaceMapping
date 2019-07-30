@@ -15,8 +15,8 @@ UsageExit () {
  echo ""
  echo "  Options:"
  echo "    -a <num> : species atlas (0. Human [default], 1. Macaque, 2. Marmoset)"
- echo "    -M       : RegName=MSMAll (default: MSMSulc)"
  echo "    -t <num>,<num>,<num> : b-value upper and lower threshold, and b=0 upper threshold (default: 3100,100,50)"
+ echo "    -M       : RegName=MSMAll (default: MSMSulc)"
  echo "    -s       : do not calculate NODDI but only perform surface mapping"
  echo ""
  exit 1;

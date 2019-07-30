@@ -27,9 +27,9 @@ else
 fi
 tmp=tmp_$$
 
-b0="";j=0;
+j=0;
 for i in `cat $bval`; do
-	if [ `echo "$i <= $b0thresh" | bc` -eq 1 ] ; then
+	if [ `echo $i | awk '{printf "%d",$1}'` -le $b0thresh ] ; then
 		echo "Found b=0 volume at tdim=$j"
     fslroi ${dwi} ${tmp}_`zeropad $j 4` $j 1
 	fi;
@@ -37,7 +37,7 @@ for i in `cat $bval`; do
 done
 
 num=`imglob -extension ${tmp}_????.nii.gz | wc -w`
-if [ "$num" = 0 ] ; then echo "Error: Cannot find b0 volumes"; exit 1;fi
+if [ $num = 0 ] ; then echo "ERROR: Cannot find b0 volumes"; exit 1;fi
 
 fslmerge -t ${tmp}_merge `imglob -extension ${tmp}_????.nii.gz`
 fslmaths ${tmp}_merge -Tmean ${out}_mean -odt float
