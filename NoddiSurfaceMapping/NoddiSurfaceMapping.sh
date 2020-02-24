@@ -16,7 +16,7 @@ UsageExit () {
  echo "  Options:"
  echo "    -a <num> : species atlas (0. Human [default], 1. Macaque, 2. Marmoset)"
  echo "    -t <num>,<num>,<num> : b-value upper and lower threshold, and b=0 upper threshold (default: 3100,100,50)"
- echo "    -M       : RegName=MSMAll (default: MSMSulc)"
+ echo "    -M       : REGNAME=MSMAll (default: MSMSulc)"
  echo "    -s       : do not calculate NODDI but only perform surface mapping"
  echo ""
  exit 1;
@@ -43,7 +43,7 @@ RunMode="0"  							# 0: Matlab, 1: Python
 # NODDI: http://mig.cs.ucl.ac.uk/index.php?n=Tutorial.NODDImatlab
 # AMICO: https://github.com/daducci/AMICO
 
-RegName="MSMSulc"
+REGNAME="MSMSulc"
 Species="0"
 thr="3100,100,50" #b-value upper and lower threshold, b=0 upper threshold for HCP
 CalcNODDI="YES"
@@ -51,7 +51,7 @@ while getopts Ma:t:s OPT
  do
  case "$OPT" in
    "a" ) export Species="$OPTARG";;
-   "M" ) export RegName="MSMAll";;
+   "M" ) REGNAME="MSMAll";;
    "t" ) thr="$OPTARG";;
    "s" ) CalcNODDI="NO";;
     * )  Usage_exit;;
@@ -130,7 +130,7 @@ if [ ! "`imtest $AtlasSpaceFolder/ribbon.nii.gz`" = 1 ] ; then
  echo "ERROR: cannot find ribbon.nii.gz in $AtlasSpaceFolder"; exit 1;
 fi
 
-if [ "$RegName" = "MSMAll" ] ; then
+if [ "$REGNAME" = "MSMAll" ] ; then
 	Reg="_MSMAll"
 else
   Reg=""
@@ -395,6 +395,7 @@ for Subject in $Subjects ; do
    DTIFit
    NODDIFit
  fi
+ log_Msg "REGNAME=${REGNAME}"
  DiffusionStats
  DiffusionSurfaceMapping
  log_Msg "Finished subject: $Subject at `date -R`"
