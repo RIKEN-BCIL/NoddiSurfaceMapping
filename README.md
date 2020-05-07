@@ -7,7 +7,18 @@ Optimized cerebral cortical surface mapping of neurite properties using diffsion
 ### Installation
 1. Download NoddiSurfaceMapping.zip and unzip
 2. Configure variables in the section of Setup in NoddiSUrfaceMapipng.sh depending on your local settings including AMICO. Note that you need to configure default settings of parallel diffusivity value in AMICO. By default, it is set to 1.7E-3 mm^2/s but you need to change the value to 1.1E-3 mm^2/s for NODDI cortical surface mapping (see Fukutomi et al., Neuroimage 2018).
-3. Run NoddiSurfaceMapping.sh - input data should be already preprocessed with HCP pipeline/DiffusionPreprocessing
+3. Run NoddiSurfaceMapping.sh - input should be subject directory, which was already preprocessed with HCP pipeline/DiffusionPreprocessing
+
+```
+ Calculate NODDI and do surface-mapping for HCP data
+ Usage: $CMD <StudyFolder> <SubjectID 1> <SubjectID 2> ...
+ 
+ Options:
+     -a <num> : species atlas (0. Human [default], 1. Macaque, 2. Marmoset)
+     -t <num>,<num>,<num> : b-value upper and lower threshold, and b=0 upper threshold (default: 3100,100,50)
+     -M       : REGNAME=MSMAll (default: MSMSulc)
+     -s       : do not calculate NODDI but only perform surface mapping
+```
 
 ### Dependencies
 [AMICO][], [HCP pipeline][], [Workbench][], [FSL][]
