@@ -11,7 +11,7 @@ Optimized cerebral cortical surface mapping of neurite properties using diffsion
 
 ```
  Calculate NODDI and do surface-mapping for HCP data
- Usage: $CMD <StudyFolder> <SubjectID 1> <SubjectID 2> ...
+ Usage: NoddiSurfaceMapping <StudyFolder> <SubjectID 1> <SubjectID 2> ...
  
  Options:
      -a <num> : species atlas (0. Human [default], 1. Macaque, 2. Marmoset)
