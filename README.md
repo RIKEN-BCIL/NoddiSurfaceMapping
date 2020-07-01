@@ -28,6 +28,9 @@ Optimized cerebral cortical surface mapping of neurite properties using diffsion
 [Workbench]: https://github.com/Washington-University/workbench "Workbench"
 [FSL]: https://fsl.fmrib.ox.ac.uk/fsl/fslwiki "FSL"
 
+License
+NoddiSurfaceMapping is licensed under the terms of the MIT license.
+
 ### References
 Fukutomi, H., Glasser, M.F., Zhang, H., Autio, J.A., Coalson, T.S., Okada, T., Togashi, K., Van Essen, D.C., Hayashi, T., 2018. Neurite imaging reveals microstructural variations in human cerebral cortical gray matter. Neuroimage. [DOI][] [BALSA][]
 
