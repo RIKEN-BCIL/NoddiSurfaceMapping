@@ -28,7 +28,7 @@ Optimized cerebral cortical surface mapping of neurite properties using diffsion
 [Workbench]: https://github.com/Washington-University/workbench "Workbench"
 [FSL]: https://fsl.fmrib.ox.ac.uk/fsl/fslwiki "FSL"
 
-License
+### License
 NoddiSurfaceMapping is licensed under the terms of the MIT license.
 
 ### References
