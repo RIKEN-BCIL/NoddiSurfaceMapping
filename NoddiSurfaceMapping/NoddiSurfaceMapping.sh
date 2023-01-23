@@ -159,7 +159,7 @@ j=0;for i in `cat $DWIT1wFolder/bvals` ; do if [ `echo $i | awk '{printf "%d",$1
 if [ -e $DWIT1wFolder/dti_b0.txt ] ; then rm $DWIT1wFolder/dti_b0.txt; fi
 j=0;for i in `cat $DWIT1wFolder/bvals` ; do if [ `echo $i | awk '{printf "%d",$1}'` -le $b0thresh ] ; then j=`zeropad $j 4`; echo -n "vol${j} ">> $DWIT1wFolder/dti_b0.txt;fi;j=`expr $j + 1`;done
 if [ -e $DWIT1wFolder/dti_vol.txt ] ; then rm $DWIT1wFolder/dti_vol.txt; fi
-cat $DWIT1wFolder/dti_b0.txt $DWIT1wFolder/dti_dwi.txt | sort > $DWIT1wFolder/dti_vol.txt
+for i in $(cat $DWIT1wFolder/dti_b0.txt $DWIT1wFolder/dti_dwi.txt) ; do echo $i; done | sort | awk '{printf "%s ",$1}' > $DWIT1wFolder/dti_vol.txt
 
 if [ -e $DWIT1wFolder/dti_bvecs ] ; then rm $DWIT1wFolder/dti_bvecs;fi
 touch $DWIT1wFolder/dti_bvecs;
@@ -179,8 +179,8 @@ if [ -e $DWIT1wFolder/dti_vollist.txt ] ; then rm $DWIT1wFolder/dti_vollist.txt;
 for i in `cat $DWIT1wFolder/dti_vol.txt`; do echo $DWIT1wFolder/$i >> $DWIT1wFolder/dti_vollist.txt; done
 fslmerge -t $DWIT1wFolder/dti_data `cat $DWIT1wFolder/dti_vollist.txt`
 dtifit  -k $DWIT1wFolder/dti_data.nii.gz -o $DWIT1wFolder/dti -m $DWIT1wFolder/nodif_brain_mask -r $DWIT1wFolder/dti_bvecs -b $DWIT1wFolder/dti_bvals --sse
-imrm $DWIT1wFolder/vol????.nii.gz $DWIT1wFolder/dti_data.nii.gz
-rm $DWIT1wFolder/dti_bvecstmp $DWIT1wFolder/dti_bvecs $DWIT1wFolder/dti_bvals $DWIT1wFolder/dti_vollist.txt
+imrm $DWIT1wFolder/vol????.nii.gz
+rm $DWIT1wFolder/dti_bvecstmp $DWIT1wFolder/dti_vollist.txt
 
 }
 
