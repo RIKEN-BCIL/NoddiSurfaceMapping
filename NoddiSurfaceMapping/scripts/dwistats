@@ -1,6 +1,9 @@
 #! /bin/sh
 # statistic of dwi
 
+# This script will be running on the directory you are in.
+# Thus, you should generate tmp-dir and change directory before running the code below.
+
 Usage () {
  cat << EOF
 
