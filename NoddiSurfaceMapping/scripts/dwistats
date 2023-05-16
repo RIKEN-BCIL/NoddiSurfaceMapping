@@ -30,6 +30,9 @@ else
 fi
 tmp=tmp_$$
 
+echo ${tmp}
+echo $(pwd)
+
 j=0;
 for i in `cat $bval`; do
 	if [ `echo $i | awk '{printf "%d",$1}'` -le $b0thresh ] ; then
@@ -38,6 +41,9 @@ for i in `cat $bval`; do
 	fi;
 	j=`expr $j + 1`;
 done
+
+echo $(pwd)
+ls ${tmp}*
 
 num=`imglob -extension ${tmp}_????.nii.gz | wc -w`
 if [ $num = 0 ] ; then echo "ERROR: Cannot find b0 volumes"; exit 1;fi
