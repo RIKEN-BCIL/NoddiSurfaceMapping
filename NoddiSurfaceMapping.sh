@@ -70,7 +70,7 @@ UsageExit () {
  echo "                Marquardt only; matlab the NODDI toolbox; matlab-rician a Rician NODDI in MATLAB (--rnoddidir)."
  echo "                Each writes its own folder and CIFTI suffix"
  echo "    --gradnonlin=<file> : gradient nonlinearity tensor (grad_dev.nii.gz, 9 volumes, on the"
- echo "                data grid). DTIFit gets it, and the NODDI fits are done in bins of the"
+ echo "                data grid). Every DTIFit gets it, and the NODDI fits are done in bins of the"
  echo "                effective b-value scale |(I+L)g|^2, each bin with its own b-table. Every"
  echo "                fitter honours it, MATLAB included, and the bins are also the unit of"
  echo "                parallelism"
@@ -612,7 +612,9 @@ _cudimot_fit () {
 		[ -e $S/bvecs_nominal ] && bc=$S/bvecs_nominal
 	fi
 	${FSLDIR}/bin/dtifit -k $S/data -m $S/nodif_brain_mask -r $bc -b $bv -o $O/Dtifit/dtifit --save_tensor $gnl
-	$bin/cart2spherical $O/Dtifit/dtifit_V1 $O/Dtifit/dtifit_V1
+	# cart2spherical exits 1 even when it has written its output: judge it by the files
+	$bin/cart2spherical $O/Dtifit/dtifit_V1 $O/Dtifit/dtifit_V1 || true
+	[ -s $th ] && [ -s $ph ] || { echo "ERROR: cart2spherical wrote no $th / $ph"; return 1; }
 	# 1 grid search over fiso, fintra, kappa with the orientation held at DTI's
 	printf '\n\n\n%s\n%s\n' $th $ph > $G1/InitializationParameters
 	printf '%s\n' "search[0]=(0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0)" \
