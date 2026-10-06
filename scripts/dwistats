@@ -25,21 +25,24 @@ if [ "$5" != "" ] ; then
 else
 	b0thresh=20
 fi
-tmp=tmp_$$
+tmp=${out}_$$
 
 j=0;
+vols=""
 for i in `cat $bval`; do
 	if [ `echo $i | awk '{printf "%d",$1}'` -le $b0thresh ] ; then
 		echo "Found b=0 volume at tdim=$j"
-    fslroi ${dwi} ${tmp}_`zeropad $j 4` $j 1
+		fslroi ${dwi} ${tmp}_`zeropad $j 4` $j 1
+		vols="$vols ${tmp}_`zeropad $j 4`"		
 	fi;
 	j=`expr $j + 1`;
 done
 
-num=`imglob -extension ${tmp}_????.nii.gz | wc -w`
+num=$(echo $vols | wc -w)
 if [ $num = 0 ] ; then echo "ERROR: Cannot find b0 volumes"; exit 1;fi
 
-fslmerge -t ${tmp}_merge `imglob -extension ${tmp}_????.nii.gz`
+#fslmerge -t ${tmp}_merge `imglob -extension ${tmp}_????.nii.gz`
+fslmerge -t ${tmp}_merge $vols
 fslmaths ${tmp}_merge -Tmean ${out}_mean -odt float
 fslmaths ${tmp}_merge -Tstd ${out}_std -odt float
 fslmaths ${out}_mean -div ${out}_std ${out}_snr -odt float
