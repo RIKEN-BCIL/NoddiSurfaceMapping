@@ -17,8 +17,8 @@ AMICO. The v1 code (AMICO, volume fit) is at tag `v1.0`.
    NIfTI for the fitter. With `--gradnonlin` the vertices are grouped into bins
    of the effective b-value scale, each with its own b-table.
 2. **fit** — NODDI (Watson, parallel diffusivity 1.1 µm²/ms for grey matter)
-   per vertex, with cuDIMOT on the GPU, or in MATLAB (the NODDI toolbox, or a Rician NODDI
-   of your own via `--rnoddidir`).
+   per vertex, with cuDIMOT on the GPU, or in MATLAB with the NODDI toolbox (sigmaScaling
+   fixed, or fitted by maximum likelihood with `--fitter=matlab-rician`).
 3. **map** — the fitted maps are smoothed on the layer surface by its own mean
    vertex spacing and resampled to `32k_fs_LR` CIFTI (MSMSulc or MSMAll).
 
@@ -39,15 +39,15 @@ be made downstream (`-S` flags low-SNR vertices if wanted).
 - python3 with numpy and nibabel (and scipy for `--mapping=hippunfold`)
 - For the default fitters: [cuDIMOT](https://users.fmrib.ox.ac.uk/~moisesf/cudimot)
   with the `CorticalNODDI_Watson` model (below) and an NVIDIA GPU
-- For `--fitter=matlab`: MATLAB, the
+- For `--fitter=matlab` and `--fitter=matlab-rician`: MATLAB, the
   [NODDI toolbox](http://mig.cs.ucl.ac.uk/index.php?n=Tutorial.NODDImatlab) and
-  niftimatlib (`--noddidir=`, `NIFTIMATLIB=`; default `./NODDI/`)
-- For `--fitter=matlab-rician`: MATLAB and a Rician NODDI implementation, given
-  with `--rnoddidir=<dir>` (or `RNODDIDIR`). The folder must provide
-  `noddi_rician_bin(datafile, maskfile, bvalsfile, bvecsfile, outprefix)`
-  writing `<outprefix>_ficvf.nii`, `_fiso.nii`, `_kappa.nii`, `_odi.nii`,
-  `_fibredirs_{x,y,z}vec.nii` and `_fmin.nii`, as the NODDI toolbox's
-  `SaveParamsAsNIfTI` does; it is called once per bin
+  niftimatlib (`--noddidir=`, `NIFTIMATLIB=`). The toolbox must be NODDI-R, a
+  modified v1.05 (not the official toolbox), which is not distributed here yet:
+  place it at `matlab/NODDI-R` (the default) or give its folder with
+  `--noddidir`. niftimatlib is bundled as `matlab/niftimatlib` (GPL, from SPM8)
+  and used by default.
+  `matlab` fixes sigmaScaling at 100 (sigma = b0 SD/100) as the original toolbox does;
+  `matlab-rician` fits sigmaScaling by maximum likelihood
 - For `--mapping=hippunfold`: HippUnfold surfaces in
   `<Study>/<Subject>/T1w/HippUnfold/T1w/<density>/`
 
@@ -120,8 +120,8 @@ Notes (built and installed this way in 2026-10 from SPMIC-UoN/cudimot master
 git clone https://github.com/RIKEN-BCIL/NoddiSurfaceMapping.git
 ```
 
-No build step; run `NoddiSurfaceMapping.sh` from the clone (it finds
-`scripts/` next to itself).
+No build step; run `NoddiSurfaceMapping.sh` from the clone (it finds `scripts/`
+and `matlab/` next to itself).
 
 ## Usage
 
@@ -146,6 +146,54 @@ NoddiSurfaceMapping.sh --mapping=volume <Study> <Subject>
 Run it with no arguments for the full option list (`--mapping`, the sampling
 depth, `--fitter`, `--gradnonlin`, `--runmode`, `-a` species, `-S`, ...).
 
+`--nthr=<num>` caps the CPU threads a run may use (default the queue's
+`NSLOTS`, or 1 outside a queue; `0` lifts the cap). It sets
+
+- the threads of `wb_command` and numpy (OMP/OpenBLAS/MKL) in prep and map,
+  which otherwise take every core they find;
+- the MATLAB parpool size of each bin for `--fitter=matlab` and
+  `matlab-rician` (1 when the cap is lifted), so the MATLAB fit never takes
+  every core on the node.
+
+The cuDIMOT fit itself runs on the GPU and is not affected (its parts are set
+by `-n`).
+
+**Note:** without `--matlab-fslsub` (the MATLAB bins run one after another in
+the run), submit the script with `fsl_sub` asking for as many slots as
+`--nthr`, e.g. `fsl_sub -s openmp,8 ... NoddiSurfaceMapping.sh --nthr=8 ...`
+(see below). With `--matlab-fslsub`, `--nthr` is ignored: the MATLAB bins are
+submitted from within the run as an `fsl_sub` array job, each task running one
+worker, and the run itself uses one thread, whatever is given.
+
+### Running on a cluster
+
+By default NoddiSurfaceMapping.sh never submits jobs itself: every stage,
+every bin and every fitter (cuDIMOT and MATLAB alike) runs inside the one
+process. To use a scheduler, submit the whole script as one job, with as many
+slots as the threads it is to use. With `fsl_sub`, ask for a parallel environment when the
+run is to use more than one thread, e.g. 8:
+
+```
+fsl_sub -s openmp,8 -l logs NoddiSurfaceMapping.sh --nthr=8 --fitter=matlab-rician <Study> <Subject>
+```
+
+Give `--nthr` the same number as the slots. (The scheduler also sets
+`NSLOTS=8`, which `--nthr` would follow by default, but stating it keeps the
+run within its slots wherever `NSLOTS` is not set.) The name of the parallel environment (`openmp` here)
+and how a GPU is requested for the cuDIMOT fitters (e.g. `-q cuda.q`) depend
+on the site's configuration.
+
+The one exception is `--matlab-fslsub` (MATLAB fitters only): the bins (the
+`--nchunk` chunks, or the `--gradnonlin` bins) are then submitted with
+`fsl_sub -t` as one array job, one task per bin running a single MATLAB worker
+(one slot), to the queue `NSM_MATLAB_QUEUE` (default `long.q`), and the run waits for them.
+`--nthr` is then ignored (the run uses one thread).
+
+**Do not submit NoddiSurfaceMapping.sh itself with `fsl_sub` when using
+`--matlab-fslsub`.** Run it where `fsl_sub` can be called (e.g. the login
+node): submitted, it would hold a slot doing nothing while its own tasks wait in
+the queue behind it.
+
 ### Environment variables
 
 | Variable | Meaning |
@@ -156,14 +204,16 @@ depth, `--fitter`, `--gradnonlin`, `--runmode`, `-a` species, `-S`, ...).
 | `CUDIMOTDIR`, `CUDIMOTDIR_WM` | cuDIMOT installs (grey matter; white matter) |
 | `CUDIMOT_FSLDIR` | the FSL cuDIMOT was built against, if not `FSLDIR` |
 | `CUDA_VISIBLE_DEVICES` | the GPU(s) to use, as the scheduler sets it (a site-specific SGE example is in the script, commented out) |
-| `NSM_MATLAB_QUEUE` | `fsl_sub` queue for the MATLAB bins |
-| `NODDIDIR`, `NIFTIMATLIB` | NODDI toolbox and niftimatlib, for `--fitter=matlab` |
-| `RNODDIDIR` | the Rician NODDI, for `--fitter=matlab-rician` |
+| `NSM_MATLAB_QUEUE` | `fsl_sub` queue for the MATLAB bins, with `--matlab-fslsub` (default `long.q`) |
+| `NODDIDIR`, `NIFTIMATLIB` | NODDI toolbox and niftimatlib, for `--fitter=matlab` and `matlab-rician` |
 
 ## License
 
-MIT for the files of this repository; see [LICENSE](LICENSE) for the
-third-party software it calls.
+MIT for the files of this repository outside `matlab/`. niftimatlib, bundled
+under `matlab/`, keeps its own license (GPL v2 or later); the NODDI toolbox
+(NODDI-R, not included) is under the Artistic License 2.0, for research use
+only, not endorsed for clinical use. See [LICENSE](LICENSE) for these and for
+the third-party software it calls.
 
 ## References
 

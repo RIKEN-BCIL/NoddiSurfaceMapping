@@ -66,25 +66,46 @@ UsageExit () {
  echo "                (default 0.25) x local thickness.  tag absdist<mm>   (at most one of the three)"
  echo "    --tmpdir=<dir>  : where data.nii.gz is gunzipped once for the sampling (default the fit folder)"
  echo "    --runmode=<prep,fit,map> : which stages to run (default all three, any comma-separated subset)"
- echo "    --fitter=<name> : cudimot-mcmc [default] MCMC with Rician noise; cudimot-mle Levenberg-"
- echo "                Marquardt only; matlab the NODDI toolbox; matlab-rician a Rician NODDI in MATLAB (--rnoddidir)."
- echo "                Each writes its own folder and CIFTI suffix"
+ echo "    --fitter=<name> : the NODDI fitter; each writes its own folder and CIFTI suffix"
+ echo "                cudimot-mcmc [default] : cuDIMOT on the GPU, MCMC with Rician noise         (no suffix)"
+ echo "                cudimot-mle            : cuDIMOT on the GPU, Levenberg-Marquardt only       suffix _mle"
+ echo "                matlab                 : the NODDI toolbox in MATLAB, sigmaScaling fixed    suffix _matlab"
+ echo "                                         at 100 (sigma = b0 SD/100)"
+ echo "                matlab-rician          : the NODDI toolbox in MATLAB, sigmaScaling fitted   suffix _matlabrician"
+ echo "                                         by maximum likelihood"
  echo "    --gradnonlin=<file> : gradient nonlinearity tensor (grad_dev.nii.gz, 9 volumes, on the"
  echo "                data grid). Every DTIFit gets it, and the NODDI fits are done in bins of the"
  echo "                effective b-value scale |(I+L)g|^2, each bin with its own b-table. Every"
- echo "                fitter honours it, MATLAB included, and the bins are also the unit of"
- echo "                parallelism"
+ echo "                fitter honours it, MATLAB included"
  echo "    --gnlbin=<num>  : width of those bins (default 0.01; bins under 200 vertices are merged)"
  echo "    --nchunk=<num>  : how many equal chunks to split the data into for the MATLAB fitters"
  echo "                when --gradnonlin is NOT used (default 20). With it, the bins are the chunks"
  echo "    --matlab=<bin>  : MATLAB executable (default matlab)"
- echo "    --noddidir=<dir>: NODDI toolbox (default <this dir>/NODDI/NODDI_toolbox)"
- echo "    --rnoddidir=<dir>: the Rician NODDI implementation, for --fitter=matlab-rician: a folder with"
- echo "                noddi_rician_bin(datafile, maskfile, bvalsfile, bvecsfile, outprefix), writing"
- echo "                <outprefix>_ficvf/_fiso/_kappa/_odi/_fibredirs_{x,y,z}vec/_fmin.nii as the toolbox does"
+ echo "    --noddidir=<dir>: NODDI toolbox (default <this dir>/matlab/NODDI-R)"
+ echo "    --dpar=<m2/s>   : MATLAB fitters only: the fixed intrinsic (parallel) diffusivity of every fit"
+ echo "                of the run, grey and white matter alike, e.g. 1.4e-9 (default: 1.1e-9 for the"
+ echo "                cortex and subcortex, 1.7e-9 for the white matter). Outputs are tagged"
+ echo "                _dpar<um2/ms>, e.g. _dpar1.4"
  echo "    --nthr=<num>    : cap the CPU threads this run may use (default: the queue NSLOTS, or 1"
- echo "                outside a queue; 0 lifts the cap). wb_command takes every core it finds"
+ echo "                outside a queue; 0 lifts the cap). It sets"
+ echo "                  - the threads of wb_command and numpy (OMP/OpenBLAS/MKL), in prep and map;"
+ echo "                    wb_command takes every core it finds otherwise"
+ echo "                  - the MATLAB parpool size of each bin, for --fitter=matlab and matlab-rician"
+ echo "                    (1 when the cap is lifted)"
+ echo "                The cuDIMOT fit itself runs on the GPU and is not affected (see -n)"
+ echo "                NOTE: without --matlab-fslsub (the MATLAB bins run one after another in this"
+ echo "                run), submit this script with fsl_sub asking for as many slots as --nthr, e.g."
+ echo "                fsl_sub -s openmp,8 ... NoddiSurfaceMapping.sh --nthr=8 ..."
+ echo "                With --matlab-fslsub, --nthr is ignored: the MATLAB bins are submitted from"
+ echo "                within the run as an fsl_sub array job, each task running 1 worker, and the"
+ echo "                run itself uses 1 thread, whatever is given"
  echo "    --no-dti  : skip DTIFit and DiffusionStats (volume measures the surface fit does not read)"
+ echo "    --matlab-fslsub : MATLAB fitters only: submit the bins as one fsl_sub -t array job, one task"
+ echo "                per bin with a single MATLAB worker, and wait for them (queue: NSM_MATLAB_QUEUE, default long.q)."
+ echo "                Default: the bins run one after another inside this run, --nthr workers each"
+ echo "                NOTE: with --matlab-fslsub, do NOT submit NoddiSurfaceMapping.sh itself with"
+ echo "                fsl_sub: run it where fsl_sub can be called (e.g. the login node). Submitted, it"
+ echo "                would hold a slot doing nothing while its own tasks wait in the queue"
  echo ""
 
  exit 1
@@ -113,7 +134,6 @@ Fitter="cudimot-mcmc"
 NChunk=20
 MATLABBIN="matlab"
 NODDIDIR="${NODDIDIR:-}"
-RNODDIDIR="${RNODDIDIR:-}"
 REGNAME="MSMSulc"
 Species="0"
 THR="1050,100,50" #b-value upper and lower threshold, b=0 upper threshold for DTI
@@ -125,7 +145,9 @@ WMFit="NO"
 NJOB=4
 GradNonlin=""
 GnlBinWidth=0.01
+Dpar=""
 DoDTI="YES"
+MatlabFslsub="NO"
 NThr=${NSLOTS:-1}
 DiffusionName="Diffusion"
 SNRfrac=0
@@ -147,25 +169,31 @@ for arg in "$@"; do
 		--mapping=*)    MappingArg="${arg#*=}";;
 		--gradnonlin=*) GradNonlin="${arg#*=}";;
 		--no-dti) DoDTI="NO";;
+		--matlab-fslsub) MatlabFslsub="YES";;
 		--nthr=*) NThr="${arg#*=}";;
 		--gnlbin=*)     GnlBinWidth="${arg#*=}";;
+		--dpar=*)       Dpar="${arg#*=}";;
 		--runmode=*)    RunModes="${arg#*=}";;
 		--fitter=*)     Fitter="${arg#*=}";;
 		--nchunk=*)     NChunk="${arg#*=}";;
 		--matlab=*)     MATLABBIN="${arg#*=}";;
 		--noddidir=*)   NODDIDIR="${arg#*=}";;
-		--rnoddidir=*)  RNODDIDIR="${arg#*=}";;
 		--equi-frac-distance=*) DepthMode=frac; DepthValue="${arg#*=}"; DepthCount=$((DepthCount+1));;
 		--equi-abs-distance=*)  DepthMode=abs;  DepthValue="${arg#*=}"; DepthCount=$((DepthCount+1));;
 		--equi-vol-distance=*)  DepthMode=vol;  DepthValue="${arg#*=}"; DepthCount=$((DepthCount+1));;
 		--abs-distance-cap=*)   DepthCap="${arg#*=}";;
 		--tmpdir=*)     TmpDir="${arg#*=}";;
-		--mapping|--gradnonlin|--gnlbin|--runmode|--fitter|--nchunk|--matlab|--noddidir|--rnoddidir|--equi-frac-distance|--equi-abs-distance|--equi-vol-distance|--abs-distance-cap|--tmpdir) echo "ERROR: $arg needs =<value>"; exit 1;;
+		--mapping|--gradnonlin|--gnlbin|--runmode|--fitter|--nchunk|--matlab|--noddidir|--dpar|--equi-frac-distance|--equi-abs-distance|--equi-vol-distance|--abs-distance-cap|--tmpdir) echo "ERROR: $arg needs =<value>"; exit 1;;
 		--*) echo "ERROR: unknown option $arg"; exit 1;;
 		*) ARGS+=("$arg");;
 	esac
 done
 set -- "${ARGS[@]}"
+# --matlab-fslsub runs this script where fsl_sub is called (not as a job), and its MATLAB tasks run one
+# worker each: the whole run is held to one thread
+if [ "$MatlabFslsub" = YES ] && [ "$NThr" != 1 ] ; then
+	echo "NOTE: --matlab-fslsub: --nthr ($NThr) is ignored; the run uses 1 thread"; NThr=1
+fi
 
 # The thread cap. wb_command -volume-to-surface-mapping is the stage that costs:
 # it maps every diffusion volume onto the native midthickness and, left alone,
@@ -278,7 +306,7 @@ NODDIHCP=$(dirname $(readlink -f $0))				# path to NoddiSurfaceMapping
 [ -n "${NODDIHCP_SCRIPTS_DIR:-}" ] && NODDIHCP=$NODDIHCP_SCRIPTS_DIR
 
 # The fitters. cuDIMOT (MCMC or Levenberg-Marquardt) on the GPU, or MATLAB on the
-# CPU: the NODDI toolbox, or a Rician NODDI supplied with --rnoddidir. FitTag names the fit folder
+# CPU: the NODDI toolbox, with sigmaScaling fixed (matlab) or fitted by MLE (matlab-rician). FitTag names the fit folder
 # (<fit dir>.<FitTag>) and FitSuffix the CIFTI (noddi_ficvf<OutSuffix><FitSuffix>...),
 # so that the fitters' results coexist.
 case "$Fitter" in
@@ -294,12 +322,23 @@ esac
 # the separate surffit_gnl.sh wrote before the option was folded in here, so
 # the CIFTIs of the two routes are interchangeable.
 [ -n "$GradNonlin" ] && { FitTag="${FitTag}_gnl"; FitSuffix="${FitSuffix}_gnl"; }
-[ -n "$NODDIDIR" ] || NODDIDIR=${NODDIHCP}/NODDI/NODDI_toolbox
-NIFTIMATLIB=${NIFTIMATLIB:-${NODDIHCP}/NODDI/niftimatlib/matlab}
-if [ "$Fitter" = matlab ] && [ ! -d $NODDIDIR/fitting ] ; then echo "ERROR: NODDI toolbox not found at $NODDIDIR (--noddidir)"; exit 1; fi
-if [ "$Fitter" = matlab-rician ] ; then
-	[ -f "$RNODDIDIR/noddi_rician_bin.m" ] || { echo "ERROR: --fitter=matlab-rician needs --rnoddidir=<dir> containing noddi_rician_bin.m (got '${RNODDIDIR}')"; exit 1; }
+# the folder of the bins: <fit dir>.gnl_bins for the gradient-nonlinearity bins, <fit dir>.bins
+# otherwise (the --nchunk chunks of the MATLAB fitters, or the single bin)
+BinDirTag=bins; [ -n "$GradNonlin" ] && BinDirTag=gnl_bins
+# --dpar: the intrinsic diffusivity of every MATLAB fit of the run, grey and white matter (MakeModel's dpar, m^2/s); cuDIMOT's
+# is compiled into its model. Tagged for the same reason as _gnl, so runs at different values coexist.
+if [ "$MatlabFslsub" = YES ] ; then
+	case "$Fitter" in matlab*) ;; *) echo "ERROR: --matlab-fslsub is for --fitter=matlab or matlab-rician"; exit 1;; esac
 fi
+if [ -n "$Dpar" ] ; then
+	case "$Fitter" in matlab*) ;; *) echo "ERROR: --dpar is for --fitter=matlab or matlab-rician (cuDIMOT's is compiled into its model)"; exit 1;; esac
+	awk -v d="$Dpar" 'BEGIN { exit !(d + 0 > 0 && d + 0 <= 1e-6) }' || { echo "ERROR: --dpar=$Dpar must be a positive value in m^2/s (e.g. 1.4e-9)"; exit 1; }
+	DparTag=_dpar$(awk -v d="$Dpar" 'BEGIN { printf "%g", d * 1e9 }')
+	FitTag="${FitTag}${DparTag}"; FitSuffix="${FitSuffix}${DparTag}"
+fi
+[ -n "$NODDIDIR" ] || NODDIDIR=${NODDIHCP}/matlab/NODDI-R
+NIFTIMATLIB=${NIFTIMATLIB:-${NODDIHCP}/matlab/niftimatlib/matlab}
+case "$Fitter" in matlab*) [ -d $NODDIDIR/fitting ] || { echo "ERROR: NODDI toolbox not found at $NODDIDIR (--noddidir)"; exit 1; } ;; esac
 
 # CUDIMOT-CorticalNODDI
 # requires compilation of CUDIMOT Watson NODDI (w/ modelname=CorticalNODDI) with default value of parallel diffusivity set to 1.1
@@ -368,9 +407,9 @@ echo "========================================="
 #fi
 ## --------------------------------------------------
 
-# NJOB specifies the number of data splits in $CUDIMOT/bin/jobs_wrapper.sh.
-# cuDIMOT's jobs_wrapper.sh runs the parts one after another on the same GPU, so
-# increasing this value does not speed up a local run.
+# NJOB specifies the number of parts each cuDIMOT step splits the data into
+# (--nParts). _cudimot_step runs the parts one after another on the same GPU, so
+# increasing this value does not speed up a run.
 # However, caution is required when N=1: if the data is not split, the entire 
 # dataset is loaded at once, which may lead to a GPU Out of Memory (OOM) error.
 
@@ -672,7 +711,8 @@ _cudimot () {
 # The fit, in three stages (2026-09-19):
 #   prep : the fit directories (<dir>: data, nodif_brain_mask, bvals, bvecs) and,
 #          with --gradnonlin, the bins of the effective b-scale under
-#          <dir>.gnl_bins/bin_XX (or --nchunk equal chunks for the MATLAB fitters)
+#          <dir>.gnl_bins/bin_XX (without it, <dir>.bins/bin_XX: --nchunk equal chunks for the
+#          MATLAB fitters, or a single bin_00)
 #   fit  : every bin with the chosen fitter, into <bin>.<FitTag>
 #   map  : the bins merged into <dir>.<FitTag> (fslmaths -add over their
 #          disjoint masks), then unpacked / copied for the surface mapping
@@ -686,7 +726,7 @@ _cudimot () {
 
 # _prep_bins <dir> <grad_dev on this grid, or "">
 _prep_bins () {
-	local dir="$1" gdev="$2" G=${1}.gnl_bins
+	local dir="$1" gdev="$2" G=${1}.${BinDirTag}
 	rm -rf $G; mkdir -p $G
 	python3 - "$dir" "$gdev" "$G" "$GnlBinWidth" "$NChunk" "$Fitter" <<'PY'
 import sys, os, numpy as np, nibabel as nib
@@ -746,12 +786,14 @@ PY
 # _fit_bins <dir> <cudimot dir> <cudimot model> <grad_dev on this grid, or "">
 #   every bin of <dir> with the chosen fitter; the bins' outputs are <bin>.<FitTag>
 _fit_bins () {
-	local dir="$1" cudir="$2" model="$3" gdev="$4" G=${1}.gnl_bins
+	local dir="$1" cudir="$2" model="$3" gdev="$4" G=${1}.${BinDirTag}
 	[ -s $G/bins.txt ] || { echo "ERROR: no bins under $G; run --runmode=prep first"; exit 1; }
 	local d
+	# the bins themselves, not their <bin>.<FitTag> outputs, which sit beside them
+	local bins=$(awk '{print "'$G'/"$1}' $G/bins.txt)
 	case "$Fitter" in
 	cudimot-*)
-		for d in $G/bin_* ; do
+		for d in $bins ; do
 			[ `imtest $d.${FitTag}/OD.nii.gz` -eq 1 ] && continue
 			log_Msg "fit $(basename $d): $(awk -v b=$(basename $d) '$1==b{print $2" voxels, b-scale "$3}' $G/bins.txt)"
 			_cudimot $d ${cudir} ${model} "${gdev}"
@@ -759,30 +801,57 @@ _fit_bins () {
 		done ;;
 	matlab*)
 		local ric=0; [ "$Fitter" = matlab-rician ] && ric=1
-		local tasks=$G/matlab_tasks.txt; : > $tasks; mkdir -p $G/logs
-		for d in $G/bin_* ; do
-			[ -e $d.${FitTag}/DONE ] && continue
-			echo "${NODDIHCP}/scripts/matlab_noddi_bin.sh $d $d.${FitTag} $ric $RNODDIDIR" >> $tasks
-		done
-		local n=$(wc -l < $tasks)
-		if [ $n -gt 0 ] ; then
-			export NODDIDIR NIFTIMATLIB MATLABBIN
-			local jid=$(${FSLDIR}/bin/fsl_sub ${NSM_MATLAB_QUEUE:+-q $NSM_MATLAB_QUEUE} -l $G/logs -N noddi_${Subject} -t $tasks)
-			log_Msg "MATLAB NODDI: $n bins submitted with fsl_sub (job $jid); waiting"
-			while : ; do
-				local done=0 fail=0
-				for d in $G/bin_* ; do [ -e $d.${FitTag}/DONE ] && done=$((done+1)); [ -e $d.${FitTag}/FAIL ] && fail=$((fail+1)); done
-				[ $fail -gt 0 ] && { echo "ERROR: $fail MATLAB bins failed under $G (see <bin>.${FitTag}/FAIL and matlab.log)"; exit 1; }
-				[ $done -ge $(ls -d $G/bin_* | wc -l) ] && break
-				sleep 60
+		local tissue=GM; [ "$dir" = "$WMFitFolder" ] && tissue=WM	# di 1.1e-9, or 1.7e-9 for the white matter
+		local pool=1; [ "${NThr:-0}" -gt 0 ] 2>/dev/null && pool=$NThr	# parpool workers per bin, under the --nthr cap
+		# By default the bins run one after another in this job, as the cuDIMOT ones do,
+		# so a run takes no more than its own slots, all in one MATLAB session (the data
+		# read and the parpool started once). With --matlab-fslsub they go to
+		# fsl_sub as one array job instead, one task per bin with a single worker (the
+		# task holds one slot), and this job waits for them. Every bin's data.nii.gz is a
+		# link to the same file, so it is unpacked once here (the toolbox reads plain
+		# .nii) and each bin reads it; it is removed once every bin is done.
+		export NODDIDIR NIFTIMATLIB MATLABBIN
+		if [ ! -e $G/data.nii ] ; then
+			set -- $bins
+			gunzip -c $1/data.nii.gz > $G/data.nii.part && mv $G/data.nii.part $G/data.nii	# no half-written file left for a rerun
+		fi
+		if [ "$MatlabFslsub" = YES ] ; then
+			local tasks=$G/matlab_tasks.txt; : > $tasks; mkdir -p $G/logs
+			for d in $bins ; do
+				[ -e $d.${FitTag}/DONE ] && continue
+				rm -f $d.${FitTag}/FAIL
+				echo "${NODDIHCP}/scripts/matlab_noddi_bin.sh $ric 1 ${Dpar:--} ${FitTag} $d" >> $tasks
 			done
-		fi ;;
+			local n=$(wc -l < $tasks)
+			if [ $n -gt 0 ] ; then
+				export NODDI_TISSUE=$tissue
+				local jid=$(${FSLDIR}/bin/fsl_sub -q ${NSM_MATLAB_QUEUE:-long.q} -l $G/logs -N noddi_${Subject} -t $tasks)
+				log_Msg "MATLAB NODDI ($tissue): $n bins submitted with fsl_sub -t (job $jid), 1 worker each; waiting"
+				while : ; do
+					local done=0 fail=0 all=0
+					for d in $bins ; do all=$((all+1)); [ -e $d.${FitTag}/DONE ] && done=$((done+1)); [ -e $d.${FitTag}/FAIL ] && fail=$((fail+1)); done
+					[ $fail -gt 0 ] && { echo "ERROR: $fail MATLAB bins failed under $G (see <bin>.${FitTag}/FAIL and matlab.log)"; exit 1; }
+					[ $done -ge $all ] && break
+					sleep 60
+				done
+			fi
+		else
+			# every bin still to do, in ONE MATLAB session: the data read and the parpool started once
+			local todo="" d
+			for d in $bins ; do [ -e $d.${FitTag}/DONE ] || todo="$todo $d" ; done
+			if [ -n "$todo" ] ; then
+				log_Msg "MATLAB NODDI ($tissue, $pool worker(s)): $(echo $todo | wc -w) bins in one MATLAB session"
+				NODDI_TISSUE=$tissue ${NODDIHCP}/scripts/matlab_noddi_bin.sh $ric $pool ${Dpar:--} ${FitTag} $todo \
+					|| { echo "ERROR: MATLAB NODDI failed for some bins under $G (see <bin>.${FitTag}/FAIL and matlab.log, and matlab_session.log in the first one)"; exit 1; }
+			fi
+		fi
+		rm -f $G/data.nii ;;
 	esac
 }
 
 # _merge_bins <dir>: <dir>.<FitTag> from the bins (their masks are disjoint, so the maps add)
 _merge_bins () {
-	local dir="$1" G=${1}.gnl_bins out=${1}.${FitTag}
+	local dir="$1" G=${1}.${BinDirTag} out=${1}.${FitTag}
 	[ -s $G/bins.txt ] || { echo "ERROR: no bins under $G"; exit 1; }
 	rm -rf $out; mkdir -p $out
 	local f d
@@ -1603,7 +1672,7 @@ Run () {
 			log_Msg "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 			log_Msg "NJOB: $NJOB" ;;
 		matlab*)
-			log_Msg "MATLAB: $MATLABBIN   NODDI toolbox: $NODDIDIR   Rician: ${RNODDIDIR:-n/a}" ;;
+			log_Msg "MATLAB: $MATLABBIN   NODDI toolbox: $NODDIDIR" ;;
 		esac
 
 		# ---- prep

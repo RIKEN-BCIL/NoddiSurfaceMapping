@@ -23,12 +23,21 @@ SOFTWARE.
 -------------------------------------------------------------------------------
 Third-party software
 
-This license covers the files of this repository only. NoddiSurfaceMapping
-calls, but does not include, the following, each under its own license:
+This license covers the files of this repository only, outside matlab/.
+
+Included under matlab/, each under its own license (not MIT):
+
+  matlab/niftimatlib     niftimatlib (nifti1 matlab i/o, from SPM8, J. Ashburner),
+                         GPL v2 or later; see matlab/niftimatlib/license.txt and gpl.txt
+
+Called, but not included, each under its own license:
+
+  NODDI-R                NODDI toolbox v1.05 (G. Zhang et al., UCL), Artistic License 2.0
+                         (https://www.nitrc.org/projects/noddi_toolbox), modified; for
+                         research use only, with no endorsement for clinical use
 
   cuDIMOT                FMRIB Software Library licence (non-commercial use)
   FSL                    FMRIB Software Library licence (non-commercial use)
   HCP Pipelines          see https://github.com/Washington-University/HCPpipelines
   Connectome Workbench   GPL v2 or later
-  NODDI toolbox          see http://mig.cs.ucl.ac.uk/index.php?n=Tutorial.NODDImatlab
   MATLAB                 commercial
